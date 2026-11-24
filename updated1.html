@@ -1,0 +1,2233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>リアルワールド算数バトラー！〜身近なモノで計算大冒険〜</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-pattern: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+    }
+    body {
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      background-color: #f0f9ff;
+      background-image: radial-gradient(#bae6fd 2px, transparent 2px);
+      background-size: 28px 28px;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+
+    /* カードレアリティ枠・アニメーション */
+    .card-common {
+      background: linear-gradient(145deg, #ffffff 0%, #f1f5f9 100%);
+      border: 4px solid #64748b;
+      box-shadow: 0 6px 0 #475569, 0 10px 15px rgba(0,0,0,0.1);
+    }
+    .card-rare {
+      background: linear-gradient(145deg, #eff6ff 0%, #dbeafe 100%);
+      border: 4px solid #2563eb;
+      box-shadow: 0 6px 0 #1d4ed8, 0 10px 20px rgba(37, 99, 235, 0.25);
+    }
+    .card-sr {
+      background: linear-gradient(135deg, #fefce8 0%, #fef08a 50%, #fde047 100%);
+      border: 4px solid #ea580c;
+      box-shadow: 0 6px 0 #c2410c, 0 0 20px rgba(250, 204, 21, 0.7);
+    }
+    .card-sr::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.65) 50%, transparent 70%);
+      background-size: 200% 200%;
+      animation: holoShine 3s infinite linear;
+      pointer-events: none;
+      border-radius: 0.75rem;
+    }
+    @keyframes holoShine {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ポップな3D風ボタン */
+    .btn-pop {
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .btn-pop:active:not(:disabled) {
+      transform: translateY(4px);
+      box-shadow: none !important;
+    }
+
+    /* バトル演出アニメーション */
+    @keyframes floatIdle {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(1.5deg); }
+    }
+    .animate-float {
+      animation: floatIdle 2.8s ease-in-out infinite;
+    }
+
+    @keyframes shakeHit {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-12px) rotate(-3deg); }
+      40% { transform: translateX(12px) rotate(3deg); }
+      60% { transform: translateX(-8px); }
+      80% { transform: translateX(8px); }
+    }
+    .animate-shake {
+      animation: shakeHit 0.45s ease-in-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.7); opacity: 0; }
+      70% { transform: scale(1.06); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop-in {
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes cardFlip {
+      0% { transform: rotateY(90deg) scale(0.85); opacity: 0; }
+      100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+    }
+    .animate-card-flip {
+      animation: cardFlip 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb { background: #38bdf8; border-radius: 9999px; }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+  <!-- トップナビゲーションバー -->
+  <header class="bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 text-white shadow-lg sticky top-0 z-40 border-b-4 border-blue-800">
+    <div class="max-w-6xl mx-auto px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      <!-- ロゴ・タイトル -->
+      <button onclick="app.switchView('home')" class="flex items-center gap-2 text-left group">
+        <div class="bg-amber-400 text-slate-900 font-black px-2.5 py-1 rounded-xl border-2 border-white shadow transform group-hover:rotate-3 transition">
+          小5算数
+        </div>
+        <div>
+          <h1 class="text-base sm:text-xl font-black tracking-tight leading-none drop-shadow">
+            リアルワールド算数バトラー！
+          </h1>
+          <p class="text-[11px] sm:text-xs text-sky-100 font-bold">〜身近なモノで計算大冒険〜</p>
+        </div>
+      </button>
+
+      <!-- ステータス表示 -->
+      <div class="flex items-center gap-1.5 sm:gap-2.5">
+        <!-- ランクバッジ -->
+        <div class="hidden md:flex items-center gap-1.5 bg-white/15 backdrop-blur px-3 py-1 rounded-full border border-white/30 text-xs font-bold">
+          <span>🏅</span>
+          <span id="header-rank">見習いバトラー</span>
+        </div>
+
+        <!-- 算数コイン -->
+        <div class="flex items-center gap-1.5 bg-amber-400 text-slate-900 px-3 py-1 rounded-full border-2 border-amber-200 shadow-inner font-black text-sm">
+          <span>🪙</span>
+          <span id="header-coins">300</span>
+        </div>
+
+        <!-- カード収集率 -->
+        <div class="flex items-center gap-1 bg-emerald-500 text-white px-2.5 py-1 rounded-full border-2 border-emerald-200 font-extrabold text-xs sm:text-sm">
+          <span>🃏</span>
+          <span id="header-collection">0/42</span>
+        </div>
+
+        <!-- 遊び方チュートリアル見返しボタン -->
+        <button onclick="app.openTutorial(0)" title="あそびかたチュートリアルを見る"
+          class="bg-amber-300 hover:bg-amber-400 text-slate-900 px-2.5 py-1.5 rounded-xl border-2 border-white text-xs sm:text-sm font-black shadow transition flex items-center gap-1">
+          <span>📖</span>
+          <span class="hidden sm:inline">あそびかた</span>
+        </button>
+
+        <!-- サウンド切替 -->
+        <button id="btn-sound" onclick="app.toggleSound()" title="効果音のオン/オフ"
+          class="bg-white/20 hover:bg-white/30 p-2 rounded-xl border border-white/30 text-sm font-bold transition">
+          🔊
+        </button>
+
+        <!-- 設定 / デモ解放 -->
+        <button onclick="app.openSettings()" title="せってい・先生/おうちの人メニュー"
+          class="bg-white/20 hover:bg-white/30 p-2 rounded-xl border border-white/30 text-sm font-bold transition">
+          ⚙️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ領域 -->
+  <main id="main-container" class="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-5">
+    <!-- JSによって動的に画面が描画されます -->
+  </main>
+
+  <!-- トースト通知（alert代替） -->
+  <div id="toast-container" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none w-11/12 max-w-md"></div>
+
+  <!-- モーダル領域 -->
+  <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div id="modal-content" class="bg-white rounded-3xl border-4 border-sky-400 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 animate-pop-in">
+    </div>
+  </div>
+
+<script>
+/**
+ * ============================================================================
+ * 1. サウンドエンジン (Web Audio API によるシンセ効果音・外部ファイル不要)
+ * ============================================================================
+ */
+class SoundFX {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+  }
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+  playTone(freq, type, duration, vol = 0.15, delay = 0) {
+    if (!this.enabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime + delay);
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + delay + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(this.ctx.currentTime + delay);
+      osc.stop(this.ctx.currentTime + delay + duration);
+    } catch (e) {}
+  }
+  click() {
+    this.playTone(620, 'sine', 0.08, 0.12);
+  }
+  cardSelect() {
+    this.playTone(523.25, 'triangle', 0.1, 0.14, 0);
+    this.playTone(783.99, 'triangle', 0.12, 0.14, 0.05);
+  }
+  correct() {
+    this.playTone(523.25, 'sine', 0.12, 0.18, 0);
+    this.playTone(659.25, 'sine', 0.12, 0.18, 0.08);
+    this.playTone(783.99, 'sine', 0.12, 0.18, 0.16);
+    this.playTone(1046.5, 'triangle', 0.3, 0.2, 0.24);
+  }
+  wrong() {
+    this.playTone(300, 'sawtooth', 0.18, 0.12, 0);
+    this.playTone(240, 'sawtooth', 0.25, 0.12, 0.15);
+  }
+  attack() {
+    this.playTone(180, 'square', 0.12, 0.18, 0);
+    this.playTone(110, 'sawtooth', 0.22, 0.22, 0.06);
+  }
+  packOpen() {
+    const notes = [523, 587, 659, 698, 784, 880, 987, 1046];
+    notes.forEach((n, i) => this.playTone(n, 'triangle', 0.14, 0.15, i * 0.055));
+  }
+  victory() {
+    const melody = [
+      { f: 523.25, d: 0.12, t: 0 },
+      { f: 659.25, d: 0.12, t: 0.13 },
+      { f: 783.99, d: 0.12, t: 0.26 },
+      { f: 1046.50, d: 0.25, t: 0.39 },
+      { f: 783.99, d: 0.12, t: 0.66 },
+      { f: 1046.50, d: 0.45, t: 0.80 }
+    ];
+    melody.forEach(m => this.playTone(m.f, 'triangle', m.d, 0.18, m.t));
+  }
+}
+const sfx = new SoundFX();
+
+/**
+ * ============================================================================
+ * 2. ゲームデータ定義（5つのワールド・20ステージ・42種類のリアルワールドカード）
+ * ============================================================================
+ */
+const WORLDS = [
+  {
+    id: 1,
+    name: "コンビニ＆お買い物タウン",
+    mathTopic: "小数のかけ算・わり算",
+    icon: "🏪",
+    color: "from-orange-400 to-amber-500",
+    borderColor: "border-orange-500",
+    bgLight: "bg-orange-50",
+    desc: "スーパーのお肉パックやセール値札、ペットボトルの量など、お買い物の小数計算マスターになろう！",
+    stages: [
+      { id: "1-1", title: "100gパックのお買い物", enemyName: "レジ打ちスライム", enemyIcon: "🧾", enemyHp: 180, rewardCoins: 80, isBoss: false },
+      { id: "1-2", title: "ドリンクコーナーの謎", enemyName: "ペットボトルゴーレム", enemyIcon: "🧴", enemyHp: 230, rewardCoins: 100, isBoss: false },
+      { id: "1-3", title: "文房具まとめ買い作戦", enemyName: "バーコードキャット", enemyIcon: "🐈‍⬛", enemyHp: 280, rewardCoins: 120, isBoss: false },
+      { id: "1-4", title: "【BOSS】タイムセールの王者", enemyName: "レジスター大魔王", enemyIcon: "🤖", enemyHp: 380, rewardCoins: 220, isBoss: true }
+    ]
+  },
+  {
+    id: 2,
+    name: "キッチン＆お料理ラボ",
+    mathTopic: "分数のたし算・ひき算・通分・約分",
+    icon: "🍳",
+    color: "from-rose-400 to-pink-500",
+    borderColor: "border-rose-500",
+    bgLight: "bg-rose-50",
+    desc: "計量カップの牛乳や切り分けたピザ、ケーキのレシピを使って、分数の通分と約分を攻略だ！",
+    stages: [
+      { id: "2-1", title: "計量カップでパンケーキ", enemyName: "ホイッパーおばけ", enemyIcon: "🥣", enemyHp: 240, rewardCoins: 110, isBoss: false },
+      { id: "2-2", title: "分けっこピザパーティー", enemyName: "チーズとろ〜り獣", enemyIcon: "🍕", enemyHp: 300, rewardCoins: 130, isBoss: false },
+      { id: "2-3", title: "フルーツジュース調合！", enemyName: "ミキサーナイト", enemyIcon: "🍹", enemyHp: 350, rewardCoins: 150, isBoss: false },
+      { id: "2-4", title: "【BOSS】三ツ星シェフの試練", enemyName: "グラタンキング", enemyIcon: "👨‍🍳", enemyHp: 460, rewardCoins: 260, isBoss: true }
+    ]
+  },
+  {
+    id: 3,
+    name: "公園＆クラフト工房",
+    mathTopic: "図形の面積（三角形・平行四辺形・台形・ひし形）",
+    icon: "📐",
+    color: "from-emerald-400 to-teal-500",
+    borderColor: "border-emerald-500",
+    bgLight: "bg-emerald-50",
+    desc: "三角定規、折り紙、跳び箱、たこ揚げなど、身近なカタチの面積の秘密を解き明かそう！",
+    stages: [
+      { id: "3-1", title: "三角定規のひみつ基地", enemyName: "さんかくペンギン", enemyIcon: "📐", enemyHp: 300, rewardCoins: 130, isBoss: false },
+      { id: "3-2", title: "ななめ芝生のひろば", enemyName: "へいこうシープ", enemyIcon: "🐑", enemyHp: 360, rewardCoins: 150, isBoss: false },
+      { id: "3-3", title: "跳び箱とたこ揚げ大会", enemyName: "クラフトドラゴン", enemyIcon: "🪁", enemyHp: 420, rewardCoins: 180, isBoss: false },
+      { id: "3-4", title: "【BOSS】図形設計の巨匠", enemyName: "コンパス将軍", enemyIcon: "🧭", enemyHp: 540, rewardCoins: 300, isBoss: true }
+    ]
+  },
+  {
+    id: 4,
+    name: "スピード＆乗り物パーク",
+    mathTopic: "単位量あたりの大きさ・速さ・混み具合",
+    icon: "🚅",
+    color: "from-sky-400 to-blue-600",
+    borderColor: "border-sky-500",
+    bgLight: "bg-sky-50",
+    desc: "新幹線や自転車のスピード、電車の混み具合、1個あたりの値段比べで「お得ハンター」になろう！",
+    stages: [
+      { id: "4-1", title: "スーパーお得ハンター！", enemyName: "値札カメレオン", enemyIcon: "🏷️", enemyHp: 360, rewardCoins: 160, isBoss: false },
+      { id: "4-2", title: "満員電車とエレベーター", enemyName: "ぎゅうぎゅうベア", enemyIcon: "🚃", enemyHp: 420, rewardCoins: 180, isBoss: false },
+      { id: "4-3", title: "自転車vs特急列車", enemyName: "スピードチーター", enemyIcon: "🐆", enemyHp: 480, rewardCoins: 210, isBoss: false },
+      { id: "4-4", title: "【BOSS】超音速の鉄道王", enemyName: "リニアカイザー", enemyIcon: "🚄", enemyHp: 620, rewardCoins: 350, isBoss: true }
+    ]
+  },
+  {
+    id: 5,
+    name: "まるごと図形＆割合シティ",
+    mathTopic: "割合・百分率（％）・円周の長さ",
+    icon: "🎡",
+    color: "from-purple-500 to-indigo-600",
+    borderColor: "border-purple-500",
+    bgLight: "bg-purple-50",
+    desc: "ゲームの30%OFF、果汁20%ジュース、自転車のタイヤ1周の長さなど、5年生算数の集大成！",
+    stages: [
+      { id: "5-1", title: "ゲームショップの大特価", enemyName: "パーセントウサギ", enemyIcon: "🎮", enemyHp: 420, rewardCoins: 190, isBoss: false },
+      { id: "5-2", title: "果汁％とアンケート調査", enemyName: "円グラフフクロウ", enemyIcon: "🦉", enemyHp: 480, rewardCoins: 220, isBoss: false },
+      { id: "5-3", title: "タイヤと観覧車の1周", enemyName: "くるくるホイール", enemyIcon: "🎡", enemyHp: 550, rewardCoins: 250, isBoss: false },
+      { id: "5-4", title: "【FINAL BOSS】算数の頂点", enemyName: "メガ・カリキュレーター", enemyIcon: "👑", enemyHp: 750, rewardCoins: 500, isBoss: true }
+    ]
+  }
+];
+
+// 全42種類のリアルワールド・カードデータベース
+const CARDS_DB = [
+  // --- World 1: 小数のかけ算・わり算 (9枚) ---
+  { id: "c01", world: 1, rarity: "C", name: "100g 180円のお肉パック", icon: "🥩", power: 90, skill: "重さかけ算", trivia: "スーパーのお肉は100gあたりの値段が書いてあるよ。2.5パックなら180×2.5だね！" },
+  { id: "c02", world: 1, rarity: "C", name: "1.5Lペットボトル茶", icon: "🍵", power: 95, skill: "大容量スプラッシュ", trivia: "1.5Lは1500mLと同じ！コップ1杯0.2Lなら何杯分になるかな？" },
+  { id: "c03", world: 1, rarity: "C", name: "1本 85.5円のえんぴつ", icon: "✏️", power: 85, skill: "文具ダース攻撃", trivia: "昔や海外のまとめ売り計算では小数点の値段が出てくることがあるよ！" },
+  { id: "c04", world: 1, rarity: "R", name: "0.8倍夕方シール", icon: "🏷️", power: 120, skill: "2割引きアタック", trivia: "1より小さい小数（0.8など）をかけると、元の値段より安くなるんだ！" },
+  { id: "c05", world: 1, rarity: "R", name: "2.4mのカラフルリボン", icon: "🎀", power: 125, skill: "等分カット", trivia: "2.4mのリボンを4人で同じ長さに分けると、1人0.6m（60cm）になるよ。" },
+  { id: "c06", world: 1, rarity: "R", name: "1.2倍増量ポテチ", icon: "🥔", power: 130, skill: "ボリュームアップ", trivia: "1より大きい小数（1.2）をかけると、元の量より増えるよ！" },
+  { id: "c07", world: 1, rarity: "SR", name: "黄金の電子マネーカード", icon: "💳", power: 165, skill: "ポイント1.5倍還元", trivia: "キャッシュレス決済の還元計算は、まさに小数のかけ算そのもの！" },
+  { id: "c08", world: 1, rarity: "C", name: "0.5kgのミニダンベル", icon: "🏋️", power: 90, skill: "筋トレラッシュ", trivia: "0.5kgは500g。6個集めるとちょうど3kgになるよ。" },
+  { id: "c09", world: "1", rarity: "SR", name: "特大3.6Lアイスバケツ", icon: "🍨", power: 160, skill: "パーティーシェア", trivia: "3.6Lを0.3Lずつカップに分けると12人分も作れるよ！" },
+
+  // --- World 2: 分数 (9枚) ---
+  { id: "c10", world: 2, rarity: "C", name: "1/2カップの牛乳", icon: "🥛", power: 95, skill: "ミルクブレンド", trivia: "1/2カップは100mL。1/4カップ（50mL）と合わせると3/4カップ（150mL）！" },
+  { id: "c11", world: 2, rarity: "C", name: "1/3カットのりんご", icon: "🍎", power: 90, skill: "シャキッと分割", trivia: "1/2と1/3をたすときは、分母を6にそろえる（通分する）と3/6＋2/6＝5/6になるよ！" },
+  { id: "c12", world: 2, rarity: "C", name: "計量スプーン(1/4)", icon: "🥄", power: 85, skill: "小さじショット", trivia: "お料理のレシピは分数がいっぱい！約分できるとスッキリ見やすくなるよ。" },
+  { id: "c13", world: 2, rarity: "R", name: "3/4枚の特大ピザ", icon: "🍕", power: 130, skill: "スライスコンボ", trivia: "4等分したピザが3切れで3/4。8等分なら6/8で同じ大きさだよ！" },
+  { id: "c14", world: 2, rarity: "R", name: "5/6本のフランスパン", icon: "🥖", power: 125, skill: "ベーカリーストライク", trivia: "5/6本から1/2本（3/6本）食べると、残りは2/6本＝約分して1/3本！" },
+  { id: "c15", world: 2, rarity: "R", name: "2/5Lのオレンジ果汁", icon: "🍊", power: 125, skill: "ビタミンミックス", trivia: "2/5は小数にすると0.4！分数と小数は変身し合える仲間なんだ。" },
+  { id: "c16", world: 2, rarity: "SR", name: "ホールケーキの黄金比", icon: "🎂", power: 170, skill: "アニバーサリー通分", trivia: "12等分できるホールケーキは、2人・3人・4人・6人のどれでもピッタリ分けられる万能サイズ！" },
+  { id: "c17", world: 2, rarity: "C", name: "3/10mの毛糸玉", icon: "🧶", power: 95, skill: "あみものループ", trivia: "3/10mは30cm。7/10mとたすとちょうど1mになるよ。" },
+  { id: "c18", world: 2, rarity: "SR", name: "虹色レインボーパフェ", icon: "🍨", power: 165, skill: "スイート約分", trivia: "6/8や4/6のように上下を同じ数でわれるときは、約分して小さくしよう！" },
+
+  // --- World 3: 面積 (8枚) ---
+  { id: "c19", world: 3, rarity: "C", name: "学校セットの三角定規", icon: "📐", power: 95, skill: "底辺×高さ÷2", trivia: "三角形の面積は、同じ三角形を2つ合わせて平行四辺形にしてから「÷2」するから求まるよ！" },
+  { id: "c20", world: 3, rarity: "C", name: "キラキラ折り紙", icon: "Origami", emojiOverride: "🟥", power: 90, skill: "対角線カット", trivia: "正方形の折り紙を対角線で切ると、直角二等辺三角形が2つできるよ。" },
+  { id: "c21", world: 3, rarity: "R", name: "公園の平行四辺形芝生", icon: "🏞️", power: 130, skill: "スライド変形", trivia: "平行四辺形は、はみ出た三角形を反対側に動かすと長方形に変身するから「底辺×高さ」！" },
+  { id: "c22", world: 3, rarity: "R", name: "体育館の跳び箱（台形）", icon: "🤸", power: 135, skill: "上底＋下底アタック", trivia: "跳び箱の横から見た形は台形！（上底＋下底）×高さ÷2で面積が出るよ。" },
+  { id: "c23", world: 3, rarity: "R", name: "お正月のひし形たこ", icon: "🪁", power: 130, skill: "対角線クロス", trivia: "ひし形の面積は「対角線×対角線÷2」。外側の長方形のちょうど半分なんだ！" },
+  { id: "c24", world: 3, rarity: "SR", name: "建築家のレーザー設計図", icon: "🏛️", power: 175, skill: "ジオメトリーバースト", trivia: "どんな複雑な多角形も、三角形に分ければ必ず面積を計算できるよ！" },
+  { id: "c25", world: 3, rarity: "C", name: "ちぎり絵の三角ピース", icon: "🎨", power: 95, skill: "アートパズル", trivia: "底辺と高さが同じなら、どんなに斜めに傾いた三角形でも面積はまったく同じ！" },
+  { id: "c26", world: 3, rarity: "SR", name: "巨大サッカーフィールド", icon: "🏟️", power: 170, skill: "グリーンフィールド", trivia: "100m×68m＝6800㎡！10m×10m＝1a（アール）だから68aになるよ。" },
+
+  // --- World 4: 単位量あたり・速さ (8枚) ---
+  { id: "c27", world: 4, rarity: "C", name: "5個入り400円みかん", icon: "🍊", power: 100, skill: "1個あたりチェック", trivia: "値段÷個数で「1個あたりの値段」を出すと、どっちがお得かすぐわかるよ！" },
+  { id: "c28", world: 4, rarity: "C", name: "マウンテンバイク", icon: "🚲", power: 105, skill: "時速15kmペダル", trivia: "速さ＝道のり÷時間！「み・は・じ」の図を思い出すとカンタンだよ。" },
+  { id: "c29", world: 4, rarity: "R", name: "通勤電車の車両", icon: "🚃", power: 135, skill: "混み具合センサー", trivia: "1㎡あたりの人数が多いほど混んでいるよ。人数÷面積で比べよう！" },
+  { id: "c30", world: 4, rarity: "R", name: "宅配スピードトラック", icon: "🚚", power: 140, skill: "ハイウェイダッシュ", trivia: "時速60kmは、1分間に1km進むスピードと同じなんだ！" },
+  { id: "c31", world: 4, rarity: "R", name: "お徳用ジャンボ洗剤", icon: "🧴", power: 135, skill: "コスパマスター", trivia: "ドラッグストアで100mLあたりの値段を比べられるようになったら立派な算数マスター！" },
+  { id: "c32", world: 4, rarity: "SR", name: "超特急N700系新幹線", icon: "🚅", power: 185, skill: "時速300kmソニック", trivia: "時速300kmなら、東京から新大阪まで約500kmを2時間半くらいで走れるよ！" },
+  { id: "c33", world: 4, rarity: "C", name: "おさんぽスニーカー", icon: "👟", power: 95, skill: "分速80mウォーク", trivia: "人が歩く速さはだいたい分速80m（1分で80m）。10分歩くと800mだね。" },
+  { id: "c34", world: 4, rarity: "SR", name: "宇宙ロケットブースター", icon: "🚀", power: 190, skill: "秒速7.9kmブレイク", trivia: "ロケットが地球の重力をふりきるには、1秒間に約7.9kmもの猛スピードが必要！" },
+
+  // --- World 5: 割合・百分率・円周 (8枚) ---
+  { id: "c35", world: 5, rarity: "C", name: "果汁20%オレンジ", icon: "🧃", power: 110, skill: "20%ジュースビーム", trivia: "20%は小数で0.2！500mLのペットボトルなら、500×0.2＝100mLが本物の果汁だよ。" },
+  { id: "c36", world: 5, rarity: "C", name: "直径20cmのお皿", icon: "🍽️", power: 110, skill: "円周3.14回転", trivia: "円周の長さは「直径×3.14」！どんな大きさの円でも約3.14倍になる不思議な数だよ。" },
+  { id: "c37", world: 5, rarity: "R", name: "30%OFFゲームソフト", icon: "🎮", power: 150, skill: "バーゲンストライク", trivia: "30%OFFということは、払う値段は100%−30%＝70%（0.7倍）になるよ！" },
+  { id: "c38", world: 5, rarity: "R", name: "自転車のタイヤ(直径60cm)", icon: "🛞", power: 145, skill: "1回転ロール", trivia: "タイヤが1回転すると「直径×3.14」だけ前に進むよ。10回転ならさらに10倍！" },
+  { id: "c39", world: 5, rarity: "R", name: "クラスの好き教科グラフ", icon: "📊", power: 145, skill: "帯グラフ分析", trivia: "全体の人数に対する割合を出すときは「くらべる量÷もとにする量」！" },
+  { id: "c40", world: 5, rarity: "SR", name: "巨大観覧車コスモクロック", icon: "🎡", power: 195, skill: "円周率3.14の奇跡", trivia: "直径100mの観覧車なら、1周の長さは100×3.14＝314mもあるんだ！" },
+  { id: "c41", world: 5, rarity: "SR", name: "プラチナ50%半額券", icon: "🎫", power: 190, skill: "ハーフプライス閃光", trivia: "50%はちょうど半分（0.5倍、1/2）！お買い物の強い味方だね。" },
+  { id: "c42", world: 5, rarity: "SR", name: "伝説の算数の王冠", icon: "👑", power: 220, skill: "オールラウンド・マスター", trivia: "小数・分数・面積・速さ・割合…すべてを極めたキミにふさわしい最強の証！" }
+];
+
+/**
+ * ============================================================================
+ * チュートリアルステップ定義（初回自動表示＆いつでも見返し可能）
+ * ============================================================================
+ */
+const TUTORIAL_STEPS = [
+  {
+    badge: "ステップ 1 / 5",
+    title: "ようこそ！リアルワールド算数バトラーへ！",
+    visual: `
+      <div class="bg-gradient-to-br from-sky-100 to-amber-50 border-2 border-sky-300 rounded-2xl p-4 text-center">
+        <div class="text-5xl mb-2">📐🍕🛒🚄</div>
+        <div class="font-black text-base text-slate-800">身のまわりのモノがバトルカードに大変身！</div>
+      </div>
+    `,
+    desc: "このゲームは、<strong>スーパーのお肉・ピザ・跳び箱・新幹線・30%OFFシール</strong>など、現実世界のアイテムを使って小学5年生の算数を楽しくマスターするカードバトルRPGだよ！"
+  },
+  {
+    badge: "ステップ 2 / 5",
+    title: "手札のカードをえらんで算数バトル！",
+    visual: `
+      <div class="bg-gradient-to-br from-orange-50 to-rose-50 border-2 border-orange-300 rounded-2xl p-4 flex justify-center gap-3">
+        <div class="bg-white border-2 border-slate-400 rounded-xl px-3 py-2 text-center shadow">
+          <div class="text-3xl">🥩</div>
+          <div class="text-[10px] font-black text-orange-600 mt-1">小数</div>
+        </div>
+        <div class="bg-white border-2 border-blue-500 rounded-xl px-3 py-2 text-center shadow">
+          <div class="text-3xl">🍕</div>
+          <div class="text-[10px] font-black text-rose-600 mt-1">分数</div>
+        </div>
+        <div class="bg-white border-2 border-orange-500 rounded-xl px-3 py-2 text-center shadow">
+          <div class="text-3xl">👑</div>
+          <div class="text-[10px] font-black text-purple-600 mt-1">割合</div>
+        </div>
+      </div>
+    `,
+    desc: "<strong>「ストーリー冒険」</strong>でステージを選ぶとバトル開始！手札からカードを1枚タップすると、そのアイテムにちなんだ<strong>現実世界の算数問題</strong>が出題されるよ。正解してモンスターにダメージを与えよう！"
+  },
+  {
+    badge: "ステップ 3 / 5",
+    title: "計算が苦手でも「ひらめき図解」で安心！",
+    visual: `
+      <div class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 text-center">
+        <div class="text-4xl mb-1.5">🐶💡</div>
+        <span class="inline-block bg-amber-400 text-slate-900 font-black text-xs px-3.5 py-1.5 rounded-xl border-2 border-amber-200 shadow">
+          💡 ひらめき図解を見る
+        </span>
+      </div>
+    `,
+    desc: "「どうやって計算するんだっけ？」と迷ったら、バトル中の<strong>「💡 ひらめき図解を見る」</strong>ボタンを押そう！ハカセ犬が<strong>ピザの切り分け図や面積の補助線、割合のバー</strong>でやさしく教えてくれるよ。まちがえても自動で図解が開いて再挑戦できるから安心！"
+  },
+  {
+    badge: "ステップ 4 / 5",
+    title: "コインを貯めてカードパック開封＆デッキ強化！",
+    visual: `
+      <div class="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 text-center">
+        <div class="text-4xl mb-1">🪙 ➔ 🎁 ➔ 📖</div>
+        <div class="font-black text-xs text-emerald-800">全42種類のリアル算数カードをコレクション！</div>
+      </div>
+    `,
+    desc: "ステージをクリアして<strong>算数コイン</strong>を集めたら、<strong>「カードパック開封」</strong>で新しいカードをゲットしよう！<strong>未クリアのステージ</strong>は初回ボーナスでコインがたっぷりもらえるよ。手に入れた強いカードは<strong>「カード図鑑＆デッキ」</strong>で12枚のデッキに入れよう！"
+  },
+  {
+    badge: "ステップ 5 / 5",
+    title: "準備完了！さあ計算大冒険へ出発しよう！",
+    visual: `
+      <div class="bg-sky-50 border-2 border-sky-300 rounded-2xl p-4 text-center">
+        <div class="text-4xl mb-1">🚀✨</div>
+        <div class="font-black text-sm text-sky-800">💾 進行状況はブラウザに自動セーブされます！</div>
+      </div>
+    `,
+    desc: "遊び方をもう一度見返したくなったら、画面右上の<strong>「📖 あそびかた」</strong>ボタンからいつでも開けるよ。まずは<strong>「ストーリー冒険」</strong>からワールド1に挑戦してみよう！"
+  }
+];
+
+/**
+ * ============================================================================
+ * 3. 問題ジェネレーター（現実世界のシチュエーション問題 + SVGビジュアル図解）
+ * ============================================================================
+ */
+class ProblemGenerator {
+  static generate(worldId, card) {
+    const topic = card ? card.world : worldId;
+    switch (Number(topic)) {
+      case 1: return this.genDecimals(card);
+      case 2: return this.genFractions(card);
+      case 3: return this.genArea(card);
+      case 4: return this.genSpeedAndUnit(card);
+      case 5: return this.genPercentAndCircle(card);
+      default: return this.genDecimals(card);
+    }
+  }
+
+  static makeChoices(correctStr, distractors) {
+    const set = new Set([String(correctStr)]);
+    for (const d of distractors) {
+      if (set.size < 4 && String(d) !== String(correctStr)) {
+        set.add(String(d));
+      }
+    }
+    const arr = Array.from(set);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // 【World 1】小数のかけ算・わり算
+  static genDecimals(card) {
+    const patterns = [
+      () => {
+        const pricePer100 = [120, 140, 160, 180, 220, 240][Math.floor(Math.random() * 6)];
+        const packs = [1.5, 2.5, 3.5][Math.floor(Math.random() * 3)];
+        const ans = Math.round(pricePer100 * packs);
+        return {
+          badge: "コンビニ・スーパー買い物",
+          question: `100gあたり <span class="text-orange-600 font-black">${pricePer100}円</span> のお肉を、<span class="text-blue-600 font-black">${packs}パック</span> 買います。代金はいくら？`,
+          formula: `${pricePer100} × ${packs}`,
+          answer: `${ans}円`,
+          choices: this.makeChoices(`${ans}円`, [`${ans + 50}円`, `${pricePer100 * 2}円`, `${ans - 40}円`, `${Math.round(pricePer100 * (packs + 1))}円`]),
+          hintText: `1パックで ${pricePer100}円、0.5パック（半分）で ${pricePer100 / 2}円 だね！あわせてみよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 110" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="15" width="340" height="80" rx="12" fill="#fff7ed" stroke="#fb923c" stroke-width="2"/>
+              <text x="180" y="38" text-anchor="middle" font-size="13" font-weight="bold" fill="#9a3412">【1パック ＝ ${pricePer100}円】 を ${packs}こ分</text>
+              <rect x="30" y="50" width="90" height="32" rx="6" fill="#fdba74" stroke="#ea580c" stroke-width="2"/>
+              <text x="75" y="71" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c2d12">1 (${pricePer100}円)</text>
+              ${packs >= 2 ? `<rect x="130" y="50" width="90" height="32" rx="6" fill="#fdba74" stroke="#ea580c" stroke-width="2"/>
+              <text x="175" y="71" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c2d12">1 (${pricePer100}円)</text>` : ''}
+              ${packs >= 3 ? `<rect x="230" y="50" width="90" height="32" rx="6" fill="#fdba74" stroke="#ea580c" stroke-width="2"/>
+              <text x="275" y="71" text-anchor="middle" font-size="13" font-weight="bold" fill="#7c2d12">1 (${pricePer100}円)</text>` : ''}
+              <rect x="${packs === 1.5 ? 130 : packs === 2.5 ? 230 : 322}" y="50" width="${packs === 3.5 ? 24 : 45}" height="32" rx="6" fill="#fef08a" stroke="#ca8a04" stroke-width="2" stroke-dasharray="4 2"/>
+              <text x="${packs === 1.5 ? 152 : packs === 2.5 ? 252 : 334}" y="71" text-anchor="middle" font-size="11" font-weight="bold" fill="#854d0e">0.5(${pricePer100/2})</text>
+            </svg>`
+        };
+      },
+      () => {
+        const totalL = [1.2, 1.5, 1.8, 2.4][Math.floor(Math.random() * 4)];
+        const cupL = 0.3;
+        const ans = Math.round(totalL / cupL);
+        return {
+          badge: "ドリンク分けっこ計算",
+          question: `<span class="text-blue-600 font-black">${totalL}L</span> のジュースを、<span class="text-emerald-600 font-black">${cupL}L</span> 入りのコップに分けます。何杯分になる？`,
+          formula: `${totalL} ÷ ${cupL}`,
+          answer: `${ans}杯`,
+          choices: this.makeChoices(`${ans}杯`, [`${ans + 1}杯`, `${ans - 1}杯`, `${ans + 2}杯`, `${ans * 10}杯`]),
+          hintText: `両方10倍して整数にするとカンタン！ ${Math.round(totalL*10)}dL ÷ ${Math.round(cupL*10)}dL と同じ答えになるよ！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 110" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="12" width="340" height="86" rx="12" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+              <text x="180" y="34" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e40af">どちらも10倍すると整数でわり算できる！</text>
+              <rect x="35" y="45" width="120" height="38" rx="8" fill="#bfdbfe"/>
+              <text x="95" y="69" text-anchor="middle" font-size="14" font-weight="bold" fill="#1e3a8a">${totalL} ÷ ${cupL}</text>
+              <text x="180" y="69" text-anchor="middle" font-size="18" font-weight="bold" fill="#2563eb">➡</text>
+              <rect x="205" y="45" width="120" height="38" rx="8" fill="#fde047"/>
+              <text x="265" y="69" text-anchor="middle" font-size="14" font-weight="bold" fill="#854d0e">${Math.round(totalL*10)} ÷ ${Math.round(cupL*10)}</text>
+            </svg>`
+        };
+      },
+      () => {
+        const base = [200, 300, 400, 500][Math.floor(Math.random() * 4)];
+        const rate = [0.6, 0.7, 0.8, 0.9][Math.floor(Math.random() * 4)];
+        const ans = Math.round(base * rate);
+        return {
+          badge: "夕方セール値札",
+          question: `<span class="text-slate-700 font-black">${base}円</span> のお弁当に「<span class="text-rose-600 font-black">${rate}倍</span> セール」のシールが！いくらで買える？`,
+          formula: `${base} × ${rate}`,
+          answer: `${ans}円`,
+          choices: this.makeChoices(`${ans}円`, [`${base - 20}円`, `${ans + 40}円`, `${ans - 40}円`, `${base}円`]),
+          hintText: `1より小さい小数（${rate}）をかけると、元の ${base}円 より安くなるよ！ ${base} × ${Math.round(rate*10)} ÷ 10 で計算しよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#fff1f2" stroke="#fb7185" stroke-width="2"/>
+              <text x="180" y="32" text-anchor="middle" font-size="12" font-weight="bold" fill="#9f1239">もとの値段(1) ＝ ${base}円</text>
+              <rect x="30" y="42" width="300" height="16" rx="4" fill="#e2e8f0"/>
+              <rect x="30" y="42" width="${300 * rate}" height="16" rx="4" fill="#f43f5e"/>
+              <text x="30" y="76" font-size="12" font-weight="bold" fill="#475569">0円</text>
+              <text x="${30 + 300 * rate}" y="76" text-anchor="middle" font-size="13" font-weight="bold" fill="#e11d48">▲ ${rate}倍 (ここ!)</text>
+              <text x="330" y="76" text-anchor="end" font-size="12" font-weight="bold" fill="#475569">${base}円</text>
+            </svg>`
+        };
+      }
+    ];
+    return patterns[Math.floor(Math.random() * patterns.length)]();
+  }
+
+  // 【World 2】分数のたし算・ひき算・通分・約分
+  static genFractions(card) {
+    const bank = [
+      {
+        badge: "お料理・計量カップ",
+        question: `ボウルに牛乳を <span class="text-blue-600 font-black">1/2 カップ</span> 入れたあと、さらに <span class="text-rose-600 font-black">1/3 カップ</span> 入れました。あわせて何カップ？`,
+        formula: `1/2 ＋ 1/3 ＝ 3/6 ＋ 2/6`,
+        answer: `5/6 カップ`,
+        choices: this.makeChoices(`5/6 カップ`, [`2/5 カップ`, `2/6 カップ`, `4/6 カップ`, `1/6 カップ`]),
+        hintText: `分母の 2 と 3 を「6」にそろえよう（通分）！ 1/2 ＝ 3/6、1/3 ＝ 2/6 になるから、分子をたすと…？`,
+        diagramSvg: `
+          <svg viewBox="0 0 360 110" class="w-full max-w-sm mx-auto">
+            <rect x="10" y="10" width="340" height="90" rx="12" fill="#fdf2f8" stroke="#f472b6" stroke-width="2"/>
+            <text x="180" y="30" text-anchor="middle" font-size="12" font-weight="bold" fill="#9d174d">6等分（通分）して合体させよう！</text>
+            <g transform="translate(30,42)">
+              <rect x="0" y="0" width="45" height="32" fill="#60a5fa" stroke="#1e293b"/>
+              <rect x="45" y="0" width="45" height="32" fill="#60a5fa" stroke="#1e293b"/>
+              <rect x="90" y="0" width="45" height="32" fill="#60a5fa" stroke="#1e293b"/>
+              <rect x="135" y="0" width="45" height="32" fill="#fb7185" stroke="#1e293b"/>
+              <rect x="180" y="0" width="45" height="32" fill="#fb7185" stroke="#1e293b"/>
+              <rect x="225" y="0" width="45" height="32" fill="#ffffff" stroke="#1e293b"/>
+              <text x="67" y="48" text-anchor="middle" font-size="11" font-weight="bold" fill="#1d4ed8">1/2 (3マス)</text>
+              <text x="180" y="48" text-anchor="middle" font-size="11" font-weight="bold" fill="#be123c">1/3 (2マス)</text>
+            </g>
+          </svg>`
+      },
+      {
+        badge: "ピザの残り計算",
+        question: `ピザが <span class="text-orange-600 font-black">3/4 枚</span> ありました。そのうち <span class="text-blue-600 font-black">1/2 枚</span> を食べました。残りは何枚？`,
+        formula: `3/4 － 1/2 ＝ 3/4 － 2/4`,
+        answer: `1/4 枚`,
+        choices: this.makeChoices(`1/4 枚`, [`2/2 枚`, `2/4 枚`, `1/2 枚`, `3/2 枚`]),
+        hintText: `1/2 枚は、4等分したピザの「2切れ分（2/4）」と同じ！ 3切れから2切れ食べると残りは…？`,
+        diagramSvg: `
+          <svg viewBox="0 0 360 110" class="w-full max-w-sm mx-auto">
+            <rect x="10" y="10" width="340" height="90" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+            <circle cx="95" cy="58" r="34" fill="#fde047" stroke="#b45309" stroke-width="2"/>
+            <path d="M95,58 L95,24 A34,34 0 0,1 129,58 Z" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+            <line x1="61" y1="58" x2="129" y2="58" stroke="#b45309" stroke-width="1.5"/>
+            <line x1="95" y1="24" x2="95" y2="92" stroke="#b45309" stroke-width="1.5"/>
+            <text x="165" y="50" font-size="13" font-weight="bold" fill="#92400e">3/4枚（3切れ）から</text>
+            <text x="165" y="72" font-size="13" font-weight="bold" fill="#dc2626">1/2枚（2切れ）を引く！</text>
+          </svg>`
+      },
+      {
+        badge: "ジュース調合＆約分",
+        question: `<span class="text-purple-600 font-black">1/6 L</span> のぶどう液と <span class="text-sky-600 font-black">3/6 L</span> の炭酸水を混ぜました。約分して答えると何L？`,
+        formula: `1/6 ＋ 3/6 ＝ 4/6 → 約分すると？`,
+        answer: `2/3 L`,
+        choices: this.makeChoices(`2/3 L`, [`4/12 L`, `1/3 L`, `3/4 L`, `4/6 L`]),
+        hintText: `まずたすと 4/6 になるね！分母の6と分子の4を、どちらも「2」でわって約分しよう！`,
+        diagramSvg: `
+          <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+            <rect x="10" y="10" width="340" height="85" rx="12" fill="#f3e8ff" stroke="#a855f7" stroke-width="2"/>
+            <text x="180" y="34" text-anchor="middle" font-size="13" font-weight="bold" fill="#6b21a8">4/6 の上下を 2 でわってスッキリ約分！</text>
+            <text x="120" y="68" text-anchor="middle" font-size="20" font-weight="black" fill="#7e22ce">4/6</text>
+            <text x="180" y="68" text-anchor="middle" font-size="14" font-weight="bold" fill="#475569">÷2 ➡</text>
+            <text x="240" y="68" text-anchor="middle" font-size="22" font-weight="black" fill="#db2777">？ / ？</text>
+          </svg>`
+      },
+      {
+        badge: "ケーキ切り分け",
+        question: `ケーキが <span class="text-rose-600 font-black">5/6 個</span> あります。<span class="text-blue-600 font-black">1/3 個</span> 食べると残りは何個？（約分しよう）`,
+        formula: `5/6 － 2/6 ＝ 3/6 → 約分すると？`,
+        answer: `1/2 個`,
+        choices: this.makeChoices(`1/2 個`, [`4/3 個`, `2/3 個`, `1/3 個`, `2/6 個`]),
+        hintText: `1/3 ＝ 2/6 だから、5/6 － 2/6 ＝ 3/6！ 6切れのうち3切れということは、ちょうど半分だね！`,
+        diagramSvg: `
+          <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+            <rect x="10" y="10" width="340" height="85" rx="12" fill="#fff1f2" stroke="#f43f5e" stroke-width="2"/>
+            <text x="180" y="35" text-anchor="middle" font-size="13" font-weight="bold" fill="#be123c">5/6 － 2/6 ＝ 3/6</text>
+            <text x="180" y="68" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e293b">6こ分けたうちの3こ ＝ ちょうど半分！</text>
+          </svg>`
+      }
+    ];
+    return bank[Math.floor(Math.random() * bank.length)];
+  }
+
+  // 【World 3】面積（三角形・平行四辺形・台形・ひし形）
+  static genArea(card) {
+    const patterns = [
+      () => {
+        const base = [6, 8, 10, 12][Math.floor(Math.random() * 4)];
+        const height = [4, 5, 6, 7][Math.floor(Math.random() * 4)];
+        const ans = (base * height) / 2;
+        return {
+          badge: "三角定規・クラフト面積",
+          question: `底辺が <span class="text-emerald-600 font-black">${base}cm</span>、高さが <span class="text-blue-600 font-black">${height}cm</span> の三角形の面積は何㎠？`,
+          formula: `${base} × ${height} ÷ 2`,
+          answer: `${ans}㎠`,
+          choices: this.makeChoices(`${ans}㎠`, [`${base * height}㎠`, `${ans + 10}㎠`, `${base + height}㎠`, `${ans - 4}㎠`]),
+          hintText: `三角形の面積は「底辺 × 高さ ÷ 2」！ 最後の「÷2」を忘れないようにしよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 115" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="8" width="340" height="98" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+              <polygon points="90,90 230,90 150,25" fill="#6ee7b7" stroke="#047857" stroke-width="2.5"/>
+              <line x1="150" y1="25" x2="150" y2="90" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>
+              <text x="160" y="103" text-anchor="middle" font-size="12" font-weight="bold" fill="#065f46">底辺 ${base}cm</text>
+              <text x="195" y="60" font-size="12" font-weight="bold" fill="#dc2626">高さ ${height}cm</text>
+            </svg>`
+        };
+      },
+      () => {
+        const base = [7, 8, 9, 11][Math.floor(Math.random() * 4)];
+        const height = [4, 5, 6][Math.floor(Math.random() * 3)];
+        const ans = base * height;
+        return {
+          badge: "公園の芝生（平行四辺形）",
+          question: `底辺が <span class="text-emerald-600 font-black">${base}m</span>、高さが <span class="text-blue-600 font-black">${height}m</span> の平行四辺形の芝生があります。面積は何㎡？`,
+          formula: `${base} × ${height}`,
+          answer: `${ans}㎡`,
+          choices: this.makeChoices(`${ans}㎡`, [`${ans / 2}㎡`, `${(base + height) * 2}㎡`, `${ans + 8}㎡`, `${ans - 5}㎡`]),
+          hintText: `平行四辺形は、はしっこを移動すると長方形と同じになるから「底辺 × 高さ」（÷2はしないよ！）`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 115" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="8" width="340" height="98" rx="12" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+              <polygon points="80,88 220,88 260,28 120,28" fill="#86efac" stroke="#15803d" stroke-width="2.5"/>
+              <line x1="120" y1="28" x2="120" y2="88" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>
+              <text x="150" y="102" text-anchor="middle" font-size="12" font-weight="bold" fill="#166534">底辺 ${base}m</text>
+              <text x="155" y="62" font-size="12" font-weight="bold" fill="#dc2626">高さ ${height}m</text>
+            </svg>`
+        };
+      },
+      () => {
+        const top = 4;
+        const bottom = 8;
+        const height = [4, 5, 6][Math.floor(Math.random() * 3)];
+        const ans = ((top + bottom) * height) / 2;
+        return {
+          badge: "跳び箱の横面（台形）",
+          question: `上底 <span class="text-amber-600 font-black">${top}cm</span>、下底 <span class="text-emerald-600 font-black">${bottom}cm</span>、高さ <span class="text-blue-600 font-black">${height}cm</span> の台形の面積は何㎠？`,
+          formula: `(${top} ＋ ${bottom}) × ${height} ÷ 2`,
+          answer: `${ans}㎠`,
+          choices: this.makeChoices(`${ans}㎠`, [`${(top + bottom) * height}㎠`, `${top * bottom * height}㎠`, `${ans + 6}㎠`, `${ans - 4}㎠`]),
+          hintText: `台形の公式は「（上底 ＋ 下底）× 高さ ÷ 2」！ まず ${top}＋${bottom}＝12 を計算しよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 115" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="8" width="340" height="98" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+              <polygon points="120,28 200,28 240,88 80,88" fill="#fde68a" stroke="#b45309" stroke-width="2.5"/>
+              <line x1="120" y1="28" x2="120" y2="88" stroke="#dc2626" stroke-width="2" stroke-dasharray="4 3"/>
+              <text x="160" y="22" text-anchor="middle" font-size="11" font-weight="bold" fill="#b45309">上底 ${top}cm</text>
+              <text x="160" y="102" text-anchor="middle" font-size="11" font-weight="bold" fill="#b45309">下底 ${bottom}cm</text>
+              <text x="155" y="62" font-size="11" font-weight="bold" fill="#dc2626">高さ${height}cm</text>
+            </svg>`
+        };
+      },
+      () => {
+        const d1 = [6, 8, 10][Math.floor(Math.random() * 3)];
+        const d2 = [4, 6, 8][Math.floor(Math.random() * 3)];
+        const ans = (d1 * d2) / 2;
+        return {
+          badge: "お正月のたこ（ひし形）",
+          question: `対角線が <span class="text-purple-600 font-black">${d1}cm</span> と <span class="text-blue-600 font-black">${d2}cm</span> のひし形の面積は何㎠？`,
+          formula: `${d1} × ${d2} ÷ 2`,
+          answer: `${ans}㎠`,
+          choices: this.makeChoices(`${ans}㎠`, [`${d1 * d2}㎠`, `${(d1 + d2) * 2}㎠`, `${ans + 6}㎠`, `${ans - 2}㎠`]),
+          hintText: `ひし形の面積は「対角線 × 対角線 ÷ 2」！ 外側の長方形のちょうど半分だよ！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 115" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="8" width="340" height="98" rx="12" fill="#faf5ff" stroke="#a855f7" stroke-width="2"/>
+              <polygon points="180,20 250,58 180,96 110,58" fill="#e9d5ff" stroke="#7e22ce" stroke-width="2.5"/>
+              <line x1="110" y1="58" x2="250" y2="58" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <line x1="180" y1="20" x2="180" y2="96" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="3 3"/>
+              <text x="295" y="54" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">対角線 ${d1}cm</text>
+              <text x="295" y="72" text-anchor="middle" font-size="11" font-weight="bold" fill="#2563eb">対角線 ${d2}cm</text>
+            </svg>`
+        };
+      }
+    ];
+    return patterns[Math.floor(Math.random() * patterns.length)]();
+  }
+
+  // 【World 4】単位量あたりの大きさ・速さ
+  static genSpeedAndUnit(card) {
+    const patterns = [
+      () => {
+        const speed = [40, 50, 60, 80][Math.floor(Math.random() * 4)];
+        const hours = [2, 3, 4][Math.floor(Math.random() * 3)];
+        const ans = speed * hours;
+        return {
+          badge: "乗り物スピード計算",
+          question: `<span class="text-sky-600 font-black">時速 ${speed}km</span> で走る自動車が、<span class="text-orange-600 font-black">${hours}時間</span> 進むと何km進む？`,
+          formula: `${speed} × ${hours}`,
+          answer: `${ans}km`,
+          choices: this.makeChoices(`${ans}km`, [`${Math.round(speed / hours)}km`, `${ans + speed}km`, `${ans - 20}km`, `${speed + hours}km`]),
+          hintText: `「時速 ${speed}km」は1時間に ${speed}km 進むという意味！ ${hours}時間なら ${hours}倍 しよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/>
+              <text x="180" y="34" text-anchor="middle" font-size="13" font-weight="bold" fill="#0369a1">道のり ＝ 速さ × 時間</text>
+              <rect x="35" y="46" width="290" height="32" rx="8" fill="#bae6fd"/>
+              <text x="180" y="67" text-anchor="middle" font-size="14" font-weight="bold" fill="#0c4a6e">1時間(${speed}km) × ${hours}時間 ＝ ？km</text>
+            </svg>`
+        };
+      },
+      () => {
+        const dist = [120, 150, 180, 240][Math.floor(Math.random() * 4)];
+        const time = 3;
+        const ans = dist / time;
+        return {
+          badge: "特急列車の時速",
+          question: `<span class="text-blue-600 font-black">${dist}km</span> の道のりを <span class="text-emerald-600 font-black">${time}時間</span> で走る電車の時速は何km？`,
+          formula: `${dist} ÷ ${time}`,
+          answer: `時速 ${ans}km`,
+          choices: this.makeChoices(`時速 ${ans}km`, [`時速 ${dist * time}km`, `時速 ${ans + 10}km`, `時速 ${ans - 10}km`, `時速 ${ans + 20}km`]),
+          hintText: `時速は「1時間あたりに進む道のり」！ 全体の ${dist}km を ${time}時間 でわろう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+              <text x="180" y="34" text-anchor="middle" font-size="13" font-weight="bold" fill="#1d4ed8">速さ ＝ 道のり ÷ 時間</text>
+              <text x="180" y="68" text-anchor="middle" font-size="15" font-weight="bold" fill="#1e3a8a">${dist}km ÷ ${time}時間 ＝ 1時間あたり ？km</text>
+            </svg>`
+        };
+      },
+      () => {
+        return {
+          badge: "スーパーお得ハンター",
+          question: `Aパックは <span class="text-orange-600 font-black">5個入り400円</span>、Bパックは <span class="text-blue-600 font-black">4個入り360円</span>。1個あたりの値段が安いのはどっち？`,
+          formula: `A: 400÷5＝80円 / B: 360÷4＝90円`,
+          answer: `Aパック（1個80円）`,
+          choices: this.makeChoices(`Aパック（1個80円）`, [`Bパック（1個90円）`, `どちらも同じ値段`, `Aパック（1個70円）`, `Bパック（1個75円）`]),
+          hintText: `「値段 ÷ 個数」で、どちらも【1個あたりの値段】をくらべてみよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#fff7ed" stroke="#f97316" stroke-width="2"/>
+              <rect x="25" y="25" width="145" height="55" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+              <text x="97" y="48" text-anchor="middle" font-size="12" font-weight="bold" fill="#9a3412">A: 400円 ÷ 5個</text>
+              <text x="97" y="68" text-anchor="middle" font-size="13" font-weight="black" fill="#ea580c">1個 ＝ 80円！</text>
+              <rect x="190" y="25" width="145" height="55" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+              <text x="262" y="48" text-anchor="middle" font-size="12" font-weight="bold" fill="#075985">B: 360円 ÷ 4個</text>
+              <text x="262" y="68" text-anchor="middle" font-size="13" font-weight="black" fill="#0284c7">1個 ＝ 90円</text>
+            </svg>`
+        };
+      }
+    ];
+    return patterns[Math.floor(Math.random() * patterns.length)]();
+  }
+
+  // 【World 5】割合・百分率・円周
+  static genPercentAndCircle(card) {
+    const patterns = [
+      () => {
+        const price = [2000, 3000, 4000, 5000][Math.floor(Math.random() * 4)];
+        const off = [20, 30, 40][Math.floor(Math.random() * 3)];
+        const payRate = (100 - off) / 100;
+        const ans = Math.round(price * payRate);
+        return {
+          badge: "ゲームショップ大特価",
+          question: `<span class="text-slate-700 font-black">${price}円</span> のゲームソフトが <span class="text-rose-600 font-black">${off}%OFF</span>！代金はいくらになる？`,
+          formula: `${price} × (1 － 0.${off}) ＝ ${price} × ${payRate}`,
+          answer: `${ans}円`,
+          choices: this.makeChoices(`${ans}円`, [`${price * (off / 100)}円`, `${ans + 200}円`, `${ans - 200}円`, `${price - off}円`]),
+          hintText: `${off}%引きということは、払うのは残りの【${100 - off}%（${payRate}倍）】！ ${price} × ${payRate} を計算しよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#faf5ff" stroke="#9333ea" stroke-width="2"/>
+              <text x="180" y="30" text-anchor="middle" font-size="12" font-weight="bold" fill="#6b21a8">全体 100% ＝ ${price}円</text>
+              <rect x="30" y="42" width="${300 * payRate}" height="26" rx="4" fill="#a855f7"/>
+              <text x="${30 + 150 * payRate}" y="59" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">払う分 ${100 - off}%</text>
+              <rect x="${30 + 300 * payRate}" y="42" width="${300 * (off / 100)}" height="26" rx="4" fill="#fecdd3"/>
+              <text x="${30 + 300 * payRate + 150 * (off / 100)}" y="59" text-anchor="middle" font-size="11" font-weight="bold" fill="#be123c">${off}%引</text>
+            </svg>`
+        };
+      },
+      () => {
+        const ml = [200, 300, 400, 500][Math.floor(Math.random() * 4)];
+        const pct = [10, 20, 30][Math.floor(Math.random() * 3)];
+        const ans = Math.round(ml * (pct / 100));
+        return {
+          badge: "果汁％ドリンク",
+          question: `<span class="text-orange-600 font-black">${ml}mL</span> 入りの「果汁 <span class="text-emerald-600 font-black">${pct}%</span> ジュース」には、本物の果汁が何mL入ってる？`,
+          formula: `${ml} × 0.${pct / 10}`,
+          answer: `${ans}mL`,
+          choices: this.makeChoices(`${ans}mL`, [`${ans * 2}mL`, `${ml - ans}mL`, `${ans + 15}mL`, `${pct}mL`]),
+          hintText: `${pct}% は小数にすると【0.${pct / 10}】！ 全体の ${ml}mL に 0.${pct / 10} をかけよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 105" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="10" width="340" height="85" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+              <text x="180" y="34" text-anchor="middle" font-size="13" font-weight="bold" fill="#92400e">10% ＝ 0.1倍（10分の1）がヒント！</text>
+              <text x="180" y="66" text-anchor="middle" font-size="15" font-weight="bold" fill="#b45309">${ml}mL × 0.${pct / 10} ＝ ？mL</text>
+            </svg>`
+        };
+      },
+      () => {
+        const d = [10, 20, 30, 100][Math.floor(Math.random() * 4)];
+        const ans = +(d * 3.14).toFixed(2);
+        return {
+          badge: "タイヤ・観覧車の円周",
+          question: `直径が <span class="text-blue-600 font-black">${d}cm</span> の丸いお皿があります。まわりの長さ（円周）は何cm？（円周率は3.14）`,
+          formula: `${d} × 3.14`,
+          answer: `${ans}cm`,
+          choices: this.makeChoices(`${ans}cm`, [`${+(d * 3.14 * 2).toFixed(2)}cm`, `${+(d + 3.14).toFixed(2)}cm`, `${+(ans + 10).toFixed(1)}cm`, `${d * 3}cm`]),
+          hintText: `円周の長さの公式は「直径 × 3.14」！ 小数点の位置を右にずらして計算しよう！`,
+          diagramSvg: `
+            <svg viewBox="0 0 360 110" class="w-full max-w-sm mx-auto">
+              <rect x="10" y="8" width="340" height="94" rx="12" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+              <circle cx="95" cy="55" r="34" fill="#dbeafe" stroke="#2563eb" stroke-width="3"/>
+              <line x1="61" y1="55" x2="129" y2="55" stroke="#dc2626" stroke-width="2.5"/>
+              <text x="95" y="49" text-anchor="middle" font-size="11" font-weight="bold" fill="#dc2626">直径 ${d}cm</text>
+              <text x="235" y="48" text-anchor="middle" font-size="13" font-weight="bold" fill="#1e40af">円周 ＝ 直径 × 3.14</text>
+              <text x="235" y="72" text-anchor="middle" font-size="14" font-weight="black" fill="#2563eb">${d} × 3.14 ＝ ？</text>
+            </svg>`
+        };
+      }
+    ];
+    return patterns[Math.floor(Math.random() * patterns.length)]();
+  }
+}
+
+/**
+ * ============================================================================
+ * 4. メインアプリケーション・ステート＆UIコントローラ
+ * ============================================================================
+ */
+class MathBattlerApp {
+  constructor() {
+    this.storageKey = 'realworld_math_battler_v1';
+    this.state = this.loadState();
+    this.currentView = 'home';
+    this.selectedWorldId = 1;
+    this.battle = null;
+    this.zukanFilter = 'all';
+    this.dojoTopic = 1;
+    this.dojoProblem = null;
+    this.dojoShowHint = false;
+    this.dojoStreak = 0;
+    this.tutorialStep = 0;
+
+    this.updateHeader();
+    this.render();
+
+    // 初回プレイ時はチュートリアルを自動表示
+    if (!this.state.tutorialSeen) {
+      setTimeout(() => this.openTutorial(0), 250);
+    }
+  }
+
+  getDefaultState() {
+    const starterIds = [
+      'c01', 'c02', 'c03',
+      'c10', 'c11', 'c12',
+      'c19', 'c20',
+      'c27', 'c28',
+      'c35', 'c36'
+    ];
+    return {
+      coins: 300,
+      clearedStages: [],
+      ownedCards: [...starterIds],
+      deck: [...starterIds],
+      totalSolved: 0,
+      soundEnabled: true,
+      tutorialSeen: false
+    };
+  }
+
+  loadState() {
+    try {
+      const raw = localStorage.getItem(this.storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const def = this.getDefaultState();
+        const merged = { ...def, ...parsed };
+        sfx.enabled = merged.soundEnabled !== false;
+        return merged;
+      }
+    } catch (e) {}
+    return this.getDefaultState();
+  }
+
+  saveState() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.state));
+    } catch (e) {}
+    this.updateHeader();
+  }
+
+  getRankTitle() {
+    const c = this.state.clearedStages.length;
+    if (c >= 20) return "伝説の算数グランドマスター";
+    if (c >= 15) return "ひらめき算数チャンピオン";
+    if (c >= 10) return "リアル計算エース";
+    if (c >= 5) return "一人前算数バトラー";
+    return "見習い算数バトラー";
+  }
+
+  updateHeader() {
+    document.getElementById('header-coins').textContent = this.state.coins.toLocaleString();
+    document.getElementById('header-collection').textContent = `${this.state.ownedCards.length}/${CARDS_DB.length}`;
+    document.getElementById('header-rank').textContent = this.getRankTitle();
+    document.getElementById('btn-sound').textContent = this.state.soundEnabled ? '🔊' : '🔇';
+  }
+
+  toggleSound() {
+    this.state.soundEnabled = !this.state.soundEnabled;
+    sfx.enabled = this.state.soundEnabled;
+    if (sfx.enabled) sfx.click();
+    this.saveState();
+    this.showToast(this.state.soundEnabled ? "🔊 効果音をオンにしました！" : "🔇 効果音をオフにしました");
+  }
+
+  showToast(msg, colorClass = "bg-slate-800 text-white border-sky-400") {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = `${colorClass} border-2 px-4 py-3 rounded-2xl shadow-xl font-extrabold text-sm text-center animate-pop-in`;
+    el.innerHTML = msg;
+    container.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transition = 'opacity 0.3s';
+      setTimeout(() => el.remove(), 300);
+    }, 2400);
+  }
+
+  openModal(html) {
+    const backdrop = document.getElementById('modal-backdrop');
+    const content = document.getElementById('modal-content');
+    content.innerHTML = html;
+    backdrop.classList.remove('hidden');
+    backdrop.classList.add('flex');
+  }
+
+  closeModal() {
+    sfx.click();
+    const backdrop = document.getElementById('modal-backdrop');
+    backdrop.classList.add('hidden');
+    backdrop.classList.remove('flex');
+  }
+
+  // ==========================================================================
+  // チュートリアル（初回自動表示＆いつでも見返し可能）
+  // ==========================================================================
+  openTutorial(step = 0) {
+    sfx.cardSelect();
+    this.tutorialStep = step;
+    this.renderTutorialModal();
+  }
+
+  prevTutorial() {
+    if (this.tutorialStep > 0) {
+      sfx.click();
+      this.tutorialStep -= 1;
+      this.renderTutorialModal();
+    }
+  }
+
+  nextTutorial() {
+    if (this.tutorialStep < TUTORIAL_STEPS.length - 1) {
+      sfx.click();
+      this.tutorialStep += 1;
+      this.renderTutorialModal();
+    } else {
+      this.finishTutorial();
+    }
+  }
+
+  finishTutorial() {
+    this.state.tutorialSeen = true;
+    this.saveState();
+    this.closeModal();
+  }
+
+  renderTutorialModal() {
+    const stepData = TUTORIAL_STEPS[this.tutorialStep];
+    const isFirst = this.tutorialStep === 0;
+    const isLast = this.tutorialStep === TUTORIAL_STEPS.length - 1;
+
+    const dots = TUTORIAL_STEPS.map((_, idx) => `
+      <div class="h-2.5 rounded-full transition-all ${idx === this.tutorialStep ? 'w-7 bg-sky-600' : 'w-2.5 bg-slate-300'}"></div>
+    `).join('');
+
+    this.openModal(`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="bg-sky-100 text-sky-800 font-black text-xs px-3 py-1 rounded-full border border-sky-300">
+            📖 あそびかたガイド（${stepData.badge}）
+          </span>
+          <button onclick="app.finishTutorial()" class="text-slate-400 hover:text-slate-700 font-black text-xs bg-slate-100 px-2.5 py-1 rounded-lg">
+            スキップ ✕
+          </button>
+        </div>
+
+        <!-- ステップインジケーター -->
+        <div class="flex justify-center gap-2 py-1">
+          ${dots}
+        </div>
+
+        <h3 class="text-xl font-black text-slate-800 text-center leading-snug">
+          ${stepData.title}
+        </h3>
+
+        ${stepData.visual}
+
+        <p class="text-sm font-bold text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+          ${stepData.desc}
+        </p>
+
+        <div class="flex items-center justify-between gap-3 pt-1">
+          ${!isFirst ? `
+            <button onclick="app.prevTutorial()"
+              class="btn-pop bg-slate-200 hover:bg-slate-300 text-slate-700 font-black px-4 py-3 rounded-2xl text-sm">
+              ⬅ もどる
+            </button>
+          ` : '<div></div>'}
+
+          <button onclick="app.nextTutorial()"
+            class="btn-pop flex-1 ${isLast
+              ? 'bg-gradient-to-b from-emerald-400 to-emerald-600 text-white border-emerald-200 shadow-[0_4px_0_#065f46]'
+              : 'bg-gradient-to-b from-sky-500 to-blue-600 text-white border-sky-300 shadow-[0_4px_0_#1e3a8a]'
+            } font-black py-3 px-5 rounded-2xl border-2 text-sm sm:text-base">
+            ${isLast ? '冒険をはじめる！ 🚀' : 'つぎへ ➡'}
+          </button>
+        </div>
+      </div>
+    `);
+  }
+
+  switchView(viewName) {
+    sfx.click();
+    this.currentView = viewName;
+    if (viewName === 'dojo' && !this.dojoProblem) {
+      this.nextDojoProblem();
+    }
+    this.render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ステージ解放判定
+  isStageUnlocked(worldId, stageIdx) {
+    if (worldId === 1 && stageIdx === 0) return true;
+    const world = WORLDS.find(w => w.id === worldId);
+    if (stageIdx > 0) {
+      const prevStageId = world.stages[stageIdx - 1].id;
+      return this.state.clearedStages.includes(prevStageId);
+    } else {
+      const prevWorld = WORLDS.find(w => w.id === worldId - 1);
+      const prevBossId = prevWorld.stages[prevWorld.stages.length - 1].id;
+      return this.state.clearedStages.includes(prevBossId);
+    }
+  }
+
+  // カード表示コンポーネント生成
+  renderCardHTML(card, options = {}) {
+    const {
+      clickable = false,
+      onClickAttr = '',
+      selected = false,
+      inDeck = false,
+      locked = false,
+      compact = false
+    } = options;
+
+    if (locked) {
+      return `
+        <div class="relative rounded-2xl bg-slate-200 border-4 border-slate-300 p-3 flex flex-col items-center justify-center text-slate-400 ${compact ? 'h-44' : 'h-60'}">
+          <div class="text-4xl mb-1 opacity-50">❓</div>
+          <div class="text-xs font-black">未発見カード</div>
+          <div class="text-[10px] mt-1">パックでゲット！</div>
+        </div>
+      `;
+    }
+
+    const rarityClass = card.rarity === 'SR' ? 'card-sr' : card.rarity === 'R' ? 'card-rare' : 'card-common';
+    const rarityBadge = card.rarity === 'SR'
+      ? '<span class="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">SR 超レア</span>'
+      : card.rarity === 'R'
+      ? '<span class="bg-blue-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">R レア</span>'
+      : '<span class="bg-slate-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">N ノーマル</span>';
+
+    const worldInfo = WORLDS.find(w => w.id == card.world);
+    const displayEmoji = card.emojiOverride || card.icon;
+
+    return `
+      <div ${clickable ? `onclick="${onClickAttr}"` : ''}
+        class="relative rounded-2xl ${rarityClass} p-2.5 sm:p-3 flex flex-col justify-between transition-all duration-150
+        ${clickable ? 'cursor-pointer hover:-translate-y-1.5 active:translate-y-0' : ''}
+        ${selected ? 'ring-4 ring-rose-500 -translate-y-2' : ''}
+        ${compact ? 'h-48 sm:h-52' : 'h-64 sm:h-72'}">
+        
+        <!-- 上部ヘッダー -->
+        <div class="flex items-center justify-between gap-1">
+          ${rarityBadge}
+          <span class="bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-lg shadow-sm">
+            ⚔️ ${card.power}
+          </span>
+        </div>
+
+        <!-- イラストエリア -->
+        <div class="my-1.5 bg-white/85 rounded-xl border-2 border-slate-200/80 flex-1 flex flex-col items-center justify-center p-1.5 relative overflow-hidden">
+          <div class="${compact ? 'text-4xl' : 'text-5xl sm:text-6xl'} drop-shadow-sm transform transition hover:scale-110">
+            ${displayEmoji}
+          </div>
+          <span class="mt-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${worldInfo.bgLight} text-slate-700 border border-slate-200">
+            ${worldInfo.icon} W${worldInfo.id}
+          </span>
+          ${inDeck ? '<span class="absolute top-1 right-1 bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md shadow">デッキ中</span>' : ''}
+        </div>
+
+        <!-- カード名＆ワザ -->
+        <div class="text-center">
+          <div class="font-black text-slate-800 ${compact ? 'text-xs' : 'text-xs sm:text-sm'} leading-tight line-clamp-1">
+            ${card.name}
+          </div>
+          <div class="mt-1 bg-slate-800/90 text-amber-300 text-[10px] font-bold py-0.5 px-2 rounded-lg truncate">
+            ✨ ${card.skill}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * ==========================================================================
+   * 画面描画ルーター
+   * ==========================================================================
+   */
+  render() {
+    const main = document.getElementById('main-container');
+    switch (this.currentView) {
+      case 'home': main.innerHTML = this.viewHome(); break;
+      case 'world': main.innerHTML = this.viewWorldSelect(); break;
+      case 'battle': main.innerHTML = this.viewBattle(); break;
+      case 'zukan': main.innerHTML = this.viewZukanAndDeck(); break;
+      case 'gacha': main.innerHTML = this.viewGacha(); break;
+      case 'dojo': main.innerHTML = this.viewDojo(); break;
+    }
+  }
+
+  /**
+   * 1. ホーム画面
+   */
+  viewHome() {
+    const clearedCount = this.state.clearedStages.length;
+    const progressPct = Math.round((clearedCount / 20) * 100);
+
+    return `
+      <div class="space-y-5 animate-pop-in">
+        <!-- ヒーローバナー -->
+        <div class="bg-white rounded-3xl border-4 border-sky-400 shadow-xl p-5 sm:p-7 relative overflow-hidden">
+          <div class="flex flex-col md:flex-row items-center justify-between gap-5">
+            <div class="space-y-3 text-center md:text-left max-w-xl">
+              <div class="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <div class="inline-flex items-center gap-2 bg-amber-100 text-amber-800 border-2 border-amber-300 px-3 py-1 rounded-full text-xs sm:text-sm font-black">
+                  <span>🐶 ハカセ犬と大冒険！</span>
+                  <span>•</span>
+                  <span>全20ステージ ＆ 全42種カード</span>
+                </div>
+                <span class="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[11px] font-black">
+                  💾 オートセーブ対応
+                </span>
+              </div>
+              <h2 class="text-2xl sm:text-4xl font-black text-slate-800 leading-tight">
+                身近なモノの<span class="text-sky-600">「算数パワー」</span>で<br/>モンスターとカードバトル！
+              </h2>
+              <p class="text-sm sm:text-base text-slate-600 font-bold">
+                スーパーのお肉、ピザ、三角定規、新幹線、30%OFFシール…<br class="hidden sm:inline"/>
+                算数が苦手でも<strong>「ひらめき図解ヒント」</strong>があるから楽しくわかる！
+              </p>
+
+              <!-- 冒険の進行バー -->
+              <div class="pt-1">
+                <div class="flex justify-between text-xs font-black text-slate-600 mb-1">
+                  <span>🏆 ぼうけん達成率</span>
+                  <span>${clearedCount} / 20 ステージクリア (${progressPct}%)</span>
+                </div>
+                <div class="w-full h-4 bg-slate-200 rounded-full overflow-hidden border-2 border-slate-300">
+                  <div class="h-full bg-gradient-to-r from-emerald-400 to-sky-500 transition-all duration-500" style="width: ${progressPct}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- マスコットキャラクター -->
+            <div class="bg-gradient-to-b from-sky-100 to-blue-100 rounded-3xl border-4 border-sky-300 p-4 text-center w-full md:w-64 shrink-0">
+              <div class="text-6xl animate-float">🐶</div>
+              <div class="mt-2 bg-white rounded-2xl p-2.5 border-2 border-sky-200 text-xs font-bold text-slate-700 shadow-sm">
+                「まちがえても大丈夫ワン！図解ボタンで一緒に考えよう！」
+              </div>
+              <button onclick="app.openTutorial(0)"
+                class="mt-2.5 w-full bg-sky-500 hover:bg-sky-600 text-white font-black text-xs py-2 px-3 rounded-xl shadow transition">
+                📖 ルール・あそびかたを見る
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- メイン4大メニューグリッド -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- 冒険モード -->
+          <button onclick="app.switchView('world')"
+            class="btn-pop text-left bg-gradient-to-br from-orange-400 to-rose-500 text-white rounded-3xl p-5 sm:p-6 border-4 border-orange-200 shadow-[0_6px_0_#be123c] flex items-center gap-4">
+            <div class="bg-white/20 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl shrink-0">
+              🗺️
+            </div>
+            <div>
+              <span class="bg-yellow-300 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full">メインモード</span>
+              <h3 class="text-xl sm:text-2xl font-black mt-1">ストーリー冒険</h3>
+              <p class="text-xs sm:text-sm text-orange-50 font-bold mt-0.5">
+                全5ワールド・20ステージのボスに挑もう！
+              </p>
+            </div>
+          </button>
+
+          <!-- カードパック開封（ガチャ） -->
+          <button onclick="app.switchView('gacha')"
+            class="btn-pop text-left bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-900 rounded-3xl p-5 sm:p-6 border-4 border-yellow-200 shadow-[0_6px_0_#b45309] flex items-center gap-4">
+            <div class="bg-white/40 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl shrink-0">
+              🎁
+            </div>
+            <div>
+              <span class="bg-rose-600 text-white text-xs font-black px-2.5 py-0.5 rounded-full">1パック 100コイン</span>
+              <h3 class="text-xl sm:text-2xl font-black mt-1">カードパック開封</h3>
+              <p class="text-xs sm:text-sm text-amber-950 font-bold mt-0.5">
+                集めたコインで強力なSRカードをゲット！
+              </p>
+            </div>
+          </button>
+
+          <!-- カード図鑑＆デッキ編成 -->
+          <button onclick="app.switchView('zukan')"
+            class="btn-pop text-left bg-gradient-to-br from-emerald-400 to-teal-600 text-white rounded-3xl p-5 sm:p-6 border-4 border-emerald-200 shadow-[0_6px_0_#0f766e] flex items-center gap-4">
+            <div class="bg-white/20 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl shrink-0">
+              📖
+            </div>
+            <div>
+              <span class="bg-white text-teal-800 text-xs font-black px-2.5 py-0.5 rounded-full">収集 ${this.state.ownedCards.length}/${CARDS_DB.length}枚</span>
+              <h3 class="text-xl sm:text-2xl font-black mt-1">カード図鑑＆デッキ</h3>
+              <p class="text-xs sm:text-sm text-emerald-50 font-bold mt-0.5">
+                リアル豆知識の閲覧＆最強12枚デッキ編成！
+              </p>
+            </div>
+          </button>
+
+          <!-- れんしゅう道場 -->
+          <button onclick="app.switchView('dojo')"
+            class="btn-pop text-left bg-gradient-to-br from-sky-400 to-indigo-600 text-white rounded-3xl p-5 sm:p-6 border-4 border-sky-200 shadow-[0_6px_0_#1e40af] flex items-center gap-4">
+            <div class="bg-white/20 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-4xl sm:text-5xl shrink-0">
+              🥋
+            </div>
+            <div>
+              <span class="bg-sky-200 text-indigo-900 text-xs font-black px-2.5 py-0.5 rounded-full">図解つき特訓</span>
+              <h3 class="text-xl sm:text-2xl font-black mt-1">ひらめき算数道場</h3>
+              <p class="text-xs sm:text-sm text-sky-50 font-bold mt-0.5">
+                苦手な単元を選んでコイン稼ぎ＆練習！
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 2. ワールド＆ステージ選択画面
+   */
+  viewWorldSelect() {
+    const activeWorld = WORLDS.find(w => w.id === this.selectedWorldId) || WORLDS[0];
+
+    return `
+      <div class="space-y-5 animate-pop-in">
+        <!-- 戻るヘッダー -->
+        <div class="flex items-center justify-between">
+          <button onclick="app.switchView('home')" class="btn-pop bg-white hover:bg-slate-50 text-slate-700 font-black px-4 py-2 rounded-2xl border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] text-sm">
+            ⬅ ホームへもどる
+          </button>
+          <h2 class="text-lg sm:text-2xl font-black text-slate-800">🗺️ 冒険するワールドを選ぼう！</h2>
+          <div class="w-20 hidden sm:block"></div>
+        </div>
+
+        <!-- 5つのワールドタブ -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          ${WORLDS.map(w => {
+            const isSelected = w.id === activeWorld.id;
+            const worldCleared = w.stages.filter(s => this.state.clearedStages.includes(s.id)).length;
+            return `
+              <button onclick="app.selectWorld(${w.id})"
+                class="p-3 rounded-2xl border-4 text-left transition-all ${isSelected
+                  ? `bg-gradient-to-br ${w.color} text-white border-white shadow-lg scale-[1.02]`
+                  : 'bg-white text-slate-700 border-slate-200 hover:border-sky-300'}">
+                <div class="flex items-center justify-between">
+                  <span class="text-2xl sm:text-3xl">${w.icon}</span>
+                  <span class="text-xs font-black px-2 py-0.5 rounded-full ${isSelected ? 'bg-black/25 text-white' : 'bg-slate-100 text-slate-600'}">
+                    ${worldCleared}/4
+                  </span>
+                </div>
+                <div class="font-black text-xs sm:text-sm mt-1.5 leading-snug">W${w.id}. ${w.name}</div>
+                <div class="text-[10px] font-bold mt-0.5 ${isSelected ? 'text-white/90' : 'text-slate-500'} truncate">
+                  ${w.mathTopic}
+                </div>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- 選択中ワールドの詳細＆4ステージ一覧 -->
+        <div class="bg-white rounded-3xl border-4 ${activeWorld.borderColor} shadow-xl p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-slate-100">
+            <div>
+              <div class="inline-block bg-slate-800 text-amber-300 text-xs font-black px-3 py-1 rounded-full mb-1">
+                単元テーマ：${activeWorld.mathTopic}
+              </div>
+              <h3 class="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
+                <span>${activeWorld.icon}</span>
+                <span>ワールド${activeWorld.id}：${activeWorld.name}</span>
+              </h3>
+              <p class="text-xs sm:text-sm text-slate-600 font-bold mt-1">${activeWorld.desc}</p>
+            </div>
+          </div>
+
+          <!-- 4ステージカード -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            ${activeWorld.stages.map((st, idx) => {
+              const unlocked = this.isStageUnlocked(activeWorld.id, idx);
+              const cleared = this.state.clearedStages.includes(st.id);
+
+              return `
+                <div class="rounded-2xl border-4 p-4 flex items-center justify-between gap-3 transition
+                  ${!unlocked ? 'bg-slate-100 border-slate-300 opacity-75' : st.isBoss ? 'bg-gradient-to-r from-amber-50 to-rose-50 border-rose-400' : 'bg-sky-50/60 border-sky-300'}">
+                  <div class="flex items-center gap-3.5">
+                    <div class="w-16 h-16 rounded-2xl bg-white border-2 border-slate-200 flex items-center justify-center text-4xl shadow-inner shrink-0">
+                      ${unlocked ? st.enemyIcon : '🔒'}
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-black px-2 py-0.5 rounded-md ${st.isBoss ? 'bg-rose-600 text-white' : 'bg-sky-600 text-white'}">
+                          STAGE ${st.id}
+                        </span>
+                        ${cleared ? '<span class="bg-emerald-500 text-white text-xs font-black px-2 py-0.5 rounded-md">👑 クリア済</span>' : ''}
+                      </div>
+                      <h4 class="font-black text-base sm:text-lg text-slate-800 mt-1">${st.title}</h4>
+                      <div class="text-xs font-bold text-slate-600 mt-0.5">
+                        相手：${unlocked ? st.enemyName : '？？？'} （HP ${st.enemyHp}）
+                      </div>
+                      <div class="text-xs font-black ${cleared ? 'text-slate-600' : 'text-amber-600'} mt-0.5">
+                        ${cleared
+                          ? `2回目以降報酬：🪙 ${Math.max(20, Math.round(st.rewardCoins * 0.35))} コイン`
+                          : `初回クリア報酬：🪙 ${st.rewardCoins} コイン`
+                        }
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    ${unlocked ? `
+                      <button onclick="app.startBattle(${activeWorld.id}, '${st.id}')"
+                        class="btn-pop bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-black px-4 py-3 rounded-2xl border-2 border-emerald-200 shadow-[0_4px_0_#065f46] text-sm whitespace-nowrap">
+                        バトル開始！
+                      </button>
+                    ` : `
+                      <div class="text-xs font-black text-slate-400 text-center px-2">
+                        前のステージを<br/>クリアしよう
+                      </div>
+                    `}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  selectWorld(id) {
+    sfx.click();
+    this.selectedWorldId = id;
+    this.render();
+  }
+
+  /**
+   * 3. カードバトルシステム＆画面
+   */
+  startBattle(worldId, stageId) {
+    sfx.cardSelect();
+    const world = WORLDS.find(w => w.id === worldId);
+    const stage = world.stages.find(s => s.id === stageId);
+
+    const deckCards = this.state.deck
+      .map(id => CARDS_DB.find(c => c.id === id))
+      .filter(Boolean);
+    const shuffled = [...deckCards].sort(() => Math.random() - 0.5);
+
+    this.battle = {
+      world,
+      stage,
+      playerHp: 300,
+      playerMaxHp: 300,
+      enemyHp: stage.enemyHp,
+      enemyMaxHp: stage.enemyHp,
+      drawPile: shuffled.slice(4),
+      hand: shuffled.slice(0, 4),
+      activeCardIndex: null,
+      currentProblem: null,
+      showHint: false,
+      retryMode: false,
+      combo: 0,
+      logMessage: `${stage.enemyName} があらわれた！手札からカードを1枚えらぼう！`,
+      enemyShake: false,
+      playerShake: false
+    };
+
+    this.currentView = 'battle';
+    this.render();
+  }
+
+  selectBattleCard(handIdx) {
+    if (!this.battle || this.battle.activeCardIndex !== null) return;
+    sfx.cardSelect();
+    const card = this.battle.hand[handIdx];
+    const problem = ProblemGenerator.generate(this.battle.world.id, card);
+
+    this.battle.activeCardIndex = handIdx;
+    this.battle.currentProblem = problem;
+    this.battle.showHint = false;
+    this.battle.retryMode = false;
+    this.render();
+  }
+
+  cancelBattleCard() {
+    if (!this.battle) return;
+    sfx.click();
+    this.battle.activeCardIndex = null;
+    this.battle.currentProblem = null;
+    this.render();
+  }
+
+  toggleBattleHint() {
+    if (!this.battle) return;
+    sfx.click();
+    this.battle.showHint = !this.battle.showHint;
+    this.render();
+  }
+
+  submitBattleAnswer(selectedChoice) {
+    if (!this.battle || !this.battle.currentProblem) return;
+    const prob = this.battle.currentProblem;
+    const card = this.battle.hand[this.battle.activeCardIndex];
+
+    if (selectedChoice === prob.answer) {
+      sfx.correct();
+      setTimeout(() => sfx.attack(), 220);
+
+      this.state.totalSolved += 1;
+      if (!this.battle.retryMode) {
+        this.battle.combo += 1;
+      }
+
+      const comboMultiplier = 1 + Math.min(this.battle.combo - 1, 4) * 0.15;
+      const damage = Math.round(card.power * comboMultiplier);
+      this.battle.enemyHp = Math.max(0, this.battle.enemyHp - damage);
+      this.battle.enemyShake = true;
+
+      const comboText = this.battle.combo >= 2 ? `（🔥${this.battle.combo}連続ひらめきコンボ！）` : '';
+      const recoverText = this.battle.retryMode ? 'ナイスリカバリー！ ' : '';
+      this.battle.logMessage = `${recoverText}「${card.name}」の${card.skill}！ ${damage} ダメージ！${comboText}`;
+
+      const usedCard = this.battle.hand.splice(this.battle.activeCardIndex, 1)[0];
+      this.battle.drawPile.push(usedCard);
+      const nextCard = this.battle.drawPile.shift();
+      if (nextCard) this.battle.hand.push(nextCard);
+
+      this.battle.activeCardIndex = null;
+      this.battle.currentProblem = null;
+      this.battle.showHint = false;
+      this.battle.retryMode = false;
+
+      this.saveState();
+      this.render();
+
+      setTimeout(() => {
+        if (this.battle) {
+          this.battle.enemyShake = false;
+          if (this.battle.enemyHp <= 0) {
+            this.handleBattleVictory();
+          } else {
+            this.render();
+          }
+        }
+      }, 500);
+
+    } else {
+      sfx.wrong();
+      this.battle.combo = 0;
+      this.battle.retryMode = true;
+      this.battle.showHint = true;
+      const enemyDmg = 25;
+      this.battle.playerHp = Math.max(10, this.battle.playerHp - enemyDmg);
+      this.battle.playerShake = true;
+      this.battle.logMessage = `おしい！ハカセ犬の図解ヒントを見て、もう1回チャレンジしよう！`;
+
+      this.showToast("🐶 おしい！下の【ひらめき図解】を見て再挑戦しよう！", "bg-amber-500 text-slate-900 border-white");
+      this.render();
+
+      setTimeout(() => {
+        if (this.battle) {
+          this.battle.playerShake = false;
+          this.render();
+        }
+      }, 500);
+    }
+  }
+
+  handleBattleVictory() {
+    sfx.victory();
+    const { stage, world } = this.battle;
+    const isFirstClear = !this.state.clearedStages.includes(stage.id);
+    if (isFirstClear) {
+      this.state.clearedStages.push(stage.id);
+    }
+    const repeatCoins = Math.max(20, Math.round(stage.rewardCoins * 0.35));
+    const earnedCoins = isFirstClear ? stage.rewardCoins : repeatCoins;
+    this.state.coins += earnedCoins;
+    this.saveState();
+
+    this.openModal(`
+      <div class="text-center space-y-4">
+        <div class="text-6xl animate-bounce">🏆</div>
+        <div class="inline-block ${isFirstClear ? 'bg-amber-400 text-slate-900' : 'bg-sky-500 text-white'} font-black px-3 py-1 rounded-full text-xs">
+          STAGE ${stage.id} ${isFirstClear ? '初回クリア！' : 'クリア！（2回目以降）'}
+        </div>
+        <h3 class="text-2xl sm:text-3xl font-black text-slate-800">
+          やったね！大勝利！
+        </h3>
+        <p class="text-sm font-bold text-slate-600">
+          ${stage.enemyName} との計算バトルに勝ったよ！
+        </p>
+
+        <div class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center justify-center gap-3">
+          <span class="text-4xl">🪙</span>
+          <div class="text-left">
+            <div class="text-xs font-bold text-amber-800">
+              ${isFirstClear ? '✨ 初回クリアボーナス！' : '🔄 クリア報酬（2回目以降）'}
+            </div>
+            <div class="text-2xl font-black text-amber-600">+${earnedCoins} コイン獲得！</div>
+            ${!isFirstClear ? `<div class="text-[11px] font-bold text-slate-500 mt-0.5">※未クリアのステージだと初回ボーナスがたくさんもらえるよ！</div>` : ''}
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-2.5 pt-2">
+          <button onclick="app.closeModal(); app.switchView('gacha');"
+            class="btn-pop flex-1 bg-amber-400 hover:bg-amber-500 text-slate-900 font-black py-3 px-4 rounded-2xl border-2 border-amber-200 shadow-[0_4px_0_#b45309]">
+            🎁 パックを開けに行く
+          </button>
+          <button onclick="app.closeModal(); app.switchView('world');"
+            class="btn-pop flex-1 bg-sky-500 hover:bg-sky-600 text-white font-black py-3 px-4 rounded-2xl border-2 border-sky-200 shadow-[0_4px_0_#0369a1]">
+            🗺️ ステージ選択へ
+          </button>
+        </div>
+      </div>
+    `);
+  }
+
+  viewBattle() {
+    const b = this.battle;
+    if (!b) return this.viewWorldSelect();
+
+    const enemyHpPct = Math.round((b.enemyHp / b.enemyMaxHp) * 100);
+    const playerHpPct = Math.round((b.playerHp / b.playerMaxHp) * 100);
+
+    return `
+      <div class="space-y-4">
+        <!-- バトル上部バー -->
+        <div class="flex items-center justify-between gap-2">
+          <button onclick="app.switchView('world')" class="bg-white hover:bg-slate-100 text-slate-700 font-black px-3 py-1.5 rounded-xl border-2 border-slate-300 text-xs sm:text-sm">
+            ⬅ にげる
+          </button>
+          <div class="bg-slate-800 text-white px-3 py-1 rounded-full text-xs sm:text-sm font-black">
+            STAGE ${b.stage.id}：${b.stage.title}
+          </div>
+          <div class="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-black">
+            🔥 ${b.combo} コンボ
+          </div>
+        </div>
+
+        <!-- バトルフィールド（モンスター＆プレイヤーHP） -->
+        <div class="bg-gradient-to-b ${b.world.color} rounded-3xl border-4 border-white shadow-xl p-4 sm:p-5 text-white">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <!-- 敵モンスター側 -->
+            <div class="bg-black/25 backdrop-blur-sm rounded-2xl p-3.5 border-2 border-white/30 flex items-center gap-4">
+              <div class="text-6xl sm:text-7xl ${b.enemyShake ? 'animate-shake' : 'animate-float'} select-none">
+                ${b.stage.enemyIcon}
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-black text-base sm:text-lg">${b.stage.enemyName}</span>
+                  <span class="text-xs font-black bg-rose-600 px-2 py-0.5 rounded-full">HP ${b.enemyHp}/${b.enemyMaxHp}</span>
+                </div>
+                <div class="w-full h-4 bg-slate-900/60 rounded-full overflow-hidden mt-2 border border-white/40">
+                  <div class="h-full bg-gradient-to-r from-rose-500 to-amber-400 transition-all duration-300" style="width: ${enemyHpPct}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- プレイヤー＆実況メッセージ側 -->
+            <div class="bg-white text-slate-800 rounded-2xl p-3.5 border-2 border-sky-200 shadow-inner ${b.playerShake ? 'animate-shake' : ''}">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="font-black text-xs sm:text-sm text-sky-700">🧑‍🎓 キミの元気ゲージ</span>
+                <span class="text-xs font-black text-emerald-600">HP ${b.playerHp}/${b.playerMaxHp}</span>
+              </div>
+              <div class="w-full h-3 bg-slate-200 rounded-full overflow-hidden mb-2.5">
+                <div class="h-full bg-emerald-500 transition-all duration-300" style="width: ${playerHpPct}%"></div>
+              </div>
+              <div class="bg-sky-50 border border-sky-200 rounded-xl p-2 text-xs sm:text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                <span class="text-xl">🐶</span>
+                <span>${b.logMessage}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- カード発動中の算数ミッションパネル OR 手札4枚選択 -->
+        ${b.activeCardIndex !== null && b.currentProblem ? `
+          <div class="bg-white rounded-3xl border-4 border-amber-400 shadow-2xl p-4 sm:p-6 animate-pop-in">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b-2 border-slate-100">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">${b.hand[b.activeCardIndex].emojiOverride || b.hand[b.activeCardIndex].icon}</span>
+                <div>
+                  <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    ${b.currentProblem.badge}
+                  </span>
+                  <h3 class="font-black text-sm sm:text-base text-slate-800">
+                    「${b.hand[b.activeCardIndex].name}」の計算ミッション！
+                  </h3>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="app.toggleBattleHint()"
+                  class="btn-pop bg-amber-400 hover:bg-amber-500 text-slate-900 font-black px-3 py-1.5 rounded-xl border-2 border-amber-200 shadow-[0_3px_0_#b45309] text-xs sm:text-sm">
+                  💡 ${b.showHint ? '図解をとじる' : 'ひらめき図解を見る'}
+                </button>
+                <button onclick="app.cancelBattleCard()"
+                  class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs">
+                  カードを変える
+                </button>
+              </div>
+            </div>
+
+            <!-- 問題文 -->
+            <div class="my-4 bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 text-base sm:text-xl font-extrabold text-slate-800 leading-relaxed">
+              ${b.currentProblem.question}
+            </div>
+
+            <!-- ビジュアル図解ヒントエリア -->
+            ${b.showHint ? `
+              <div class="mb-4 bg-amber-50 border-2 border-amber-300 rounded-2xl p-3.5 animate-pop-in">
+                <div class="flex items-center gap-2 text-xs sm:text-sm font-black text-amber-900 mb-2">
+                  <span class="text-xl">🐶</span>
+                  <span>ハカセ犬のひらめき図解：${b.currentProblem.hintText}</span>
+                </div>
+                <div class="bg-white rounded-xl p-2 border border-amber-200">
+                  ${b.currentProblem.diagramSvg}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- 4択回答ボタン -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              ${b.currentProblem.choices.map((choice, i) => `
+                <button onclick="app.submitBattleAnswer('${choice}')"
+                  class="btn-pop bg-gradient-to-b from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-base sm:text-lg py-3.5 px-4 rounded-2xl border-2 border-sky-300 shadow-[0_4px_0_#1e3a8a] flex items-center justify-center gap-2">
+                  <span class="bg-white/25 w-7 h-7 rounded-full flex items-center justify-center text-xs">${['A','B','C','D'][i]}</span>
+                  <span>${choice}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        ` : `
+          <!-- 手札4枚エリア -->
+          <div class="bg-white/90 backdrop-blur rounded-3xl border-4 border-sky-300 p-4 sm:p-5 shadow-lg">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-black text-sm sm:text-base text-slate-800">
+                🃏 使うカードを1枚タップして攻撃しよう！
+              </h3>
+              <span class="text-xs font-bold text-slate-500">
+                山札のこり：${b.drawPile.length}枚
+              </span>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              ${b.hand.map((card, idx) => this.renderCardHTML(card, {
+                clickable: true,
+                onClickAttr: `app.selectBattleCard(${idx})`,
+                compact: true
+              })).join('')}
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  /**
+   * 4. カード図鑑＆デッキ編成画面
+   */
+  viewZukanAndDeck() {
+    const filteredCards = this.zukanFilter === 'all'
+      ? CARDS_DB
+      : CARDS_DB.filter(c => String(c.world) === String(this.zukanFilter));
+
+    return `
+      <div class="space-y-5 animate-pop-in">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <button onclick="app.switchView('home')" class="btn-pop bg-white text-slate-700 font-black px-4 py-2 rounded-2xl border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] text-sm">
+            ⬅ ホームへもどる
+          </button>
+          <h2 class="text-lg sm:text-2xl font-black text-slate-800">📖 リアルワールド・カード図鑑＆デッキ</h2>
+          <div class="bg-emerald-600 text-white font-black px-3 py-1.5 rounded-xl text-xs sm:text-sm">
+            デッキ枚数：${this.state.deck.length} / 12 枚
+          </div>
+        </div>
+
+        <!-- 現在の12枚デッキ表示 -->
+        <div class="bg-white rounded-3xl border-4 border-emerald-400 shadow-lg p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="font-black text-base sm:text-lg text-slate-800">⚔️ 現在のバトルデッキ（12枚）</h3>
+              <p class="text-xs font-bold text-slate-500">下の図鑑からカードをタップすると、豆知識を見たりデッキに入れ替えたりできるよ！</p>
+            </div>
+            <button onclick="app.autoBuildStrongestDeck()"
+              class="btn-pop bg-amber-400 hover:bg-amber-500 text-slate-900 font-black px-3.5 py-2 rounded-xl border-2 border-amber-200 shadow-[0_3px_0_#b45309] text-xs sm:text-sm">
+              ✨ おまかせ最強デッキ編成
+            </button>
+          </div>
+          <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2">
+            ${this.state.deck.map(id => {
+              const c = CARDS_DB.find(item => item.id === id);
+              if (!c) return '';
+              return `
+                <button onclick="app.openCardDetail('${c.id}')"
+                  class="bg-slate-50 hover:bg-sky-50 border-2 ${c.rarity === 'SR' ? 'border-orange-400 bg-amber-50' : c.rarity === 'R' ? 'border-blue-400' : 'border-slate-300'} rounded-xl p-1.5 text-center transition">
+                  <div class="text-2xl">${c.emojiOverride || c.icon}</div>
+                  <div class="text-[10px] font-black text-rose-600 mt-0.5">${c.power}</div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- ワールドフィルタータブ -->
+        <div class="flex flex-wrap gap-2">
+          <button onclick="app.setZukanFilter('all')"
+            class="px-3.5 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 ${this.zukanFilter === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-300'}">
+            すべて (${CARDS_DB.length})
+          </button>
+          ${WORLDS.map(w => `
+            <button onclick="app.setZukanFilter('${w.id}')"
+              class="px-3.5 py-1.5 rounded-full font-black text-xs sm:text-sm border-2 ${String(this.zukanFilter) === String(w.id) ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 border-slate-300'}">
+              ${w.icon} W${w.id}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- カード一覧グリッド -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+          ${filteredCards.map(card => {
+            const owned = this.state.ownedCards.includes(card.id);
+            const inDeck = this.state.deck.includes(card.id);
+            return this.renderCardHTML(card, {
+              locked: !owned,
+              inDeck,
+              clickable: owned,
+              onClickAttr: `app.openCardDetail('${card.id}')`
+            });
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  setZukanFilter(filter) {
+    sfx.click();
+    this.zukanFilter = filter;
+    this.render();
+  }
+
+  openCardDetail(cardId) {
+    sfx.cardSelect();
+    const card = CARDS_DB.find(c => c.id === cardId);
+    if (!card) return;
+    const world = WORLDS.find(w => w.id == card.world);
+    const inDeck = this.state.deck.includes(card.id);
+
+    this.openModal(`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="bg-slate-800 text-amber-300 text-xs font-black px-3 py-1 rounded-full">
+            ${world.icon} ${world.name}
+          </span>
+          <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-700 font-black text-xl">✕</button>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-center gap-4 bg-sky-50 rounded-2xl p-4 border-2 border-sky-200">
+          <div class="text-7xl bg-white p-4 rounded-2xl border-2 border-slate-200 shadow">
+            ${card.emojiOverride || card.icon}
+          </div>
+          <div class="text-center sm:text-left space-y-1">
+            <div class="text-xs font-black text-rose-600">レア度：${card.rarity} ／ 攻撃力：⚔️ ${card.power}</div>
+            <h3 class="text-xl font-black text-slate-800">${card.name}</h3>
+            <div class="inline-block bg-slate-800 text-amber-300 text-xs font-bold px-2.5 py-1 rounded-lg">
+              必殺ワザ：${card.skill}
+            </div>
+          </div>
+        </div>
+
+        <!-- リアル豆知識 -->
+        <div class="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4">
+          <div class="font-black text-sm text-amber-900 mb-1">💡 リアルワールド算数豆知識</div>
+          <p class="text-sm font-bold text-slate-700 leading-relaxed">${card.trivia}</p>
+        </div>
+
+        <!-- デッキ入れ替え操作 -->
+        <div class="pt-1">
+          ${inDeck ? `
+            <div class="text-center text-xs font-black text-emerald-600 bg-emerald-50 py-2.5 rounded-xl border border-emerald-300">
+              ✅ このカードは現在の12枚デッキに入っています
+            </div>
+          ` : `
+            <div class="space-y-2">
+              <div class="text-xs font-black text-slate-600">デッキのどのカードと入れ替える？</div>
+              <div class="grid grid-cols-4 gap-1.5 max-h-36 overflow-y-auto p-1">
+                ${this.state.deck.map((dId, idx) => {
+                  const dc = CARDS_DB.find(x => x.id === dId);
+                  return `
+                    <button onclick="app.swapDeckCard(${idx}, '${card.id}')"
+                      class="bg-slate-100 hover:bg-rose-100 border border-slate-300 rounded-xl p-1.5 text-center text-xs">
+                      <div class="text-xl">${dc.emojiOverride || dc.icon}</div>
+                      <div class="font-black text-[10px] truncate">${dc.name}</div>
+                      <div class="text-[10px] text-slate-500">⚔️${dc.power}</div>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `}
+        </div>
+      </div>
+    `);
+  }
+
+  swapDeckCard(deckIndex, newCardId) {
+    sfx.cardSelect();
+    this.state.deck[deckIndex] = newCardId;
+    this.saveState();
+    this.closeModal();
+    this.showToast("🃏 デッキのカードを入れ替えました！", "bg-emerald-600 text-white border-emerald-200");
+    this.render();
+  }
+
+  autoBuildStrongestDeck() {
+    sfx.cardSelect();
+    const ownedObjs = this.state.ownedCards
+      .map(id => CARDS_DB.find(c => c.id === id))
+      .filter(Boolean)
+      .sort((a, b) => b.power - a.power);
+
+    this.state.deck = ownedObjs.slice(0, 12).map(c => c.id);
+    this.saveState();
+    this.showToast("✨ 攻撃力が高い順に12枚を自動編成しました！", "bg-amber-500 text-slate-900 border-white");
+    this.render();
+  }
+
+  /**
+   * 5. カードパック開封（ガチャ）画面
+   */
+  viewGacha() {
+    return `
+      <div class="space-y-5 animate-pop-in">
+        <div class="flex items-center justify-between">
+          <button onclick="app.switchView('home')" class="btn-pop bg-white text-slate-700 font-black px-4 py-2 rounded-2xl border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] text-sm">
+            ⬅ ホームへもどる
+          </button>
+          <h2 class="text-lg sm:text-2xl font-black text-slate-800">🎁 リアルワールド・カードショップ</h2>
+          <div class="w-20 hidden sm:block"></div>
+        </div>
+
+        <div class="bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 rounded-3xl border-4 border-amber-400 shadow-xl p-6 sm:p-8 text-center max-w-2xl mx-auto">
+          <div class="inline-block bg-rose-600 text-white text-xs font-black px-3 py-1 rounded-full mb-3">
+            全42種収録！SR超レア出現率アップ中！
+          </div>
+
+          <!-- パックビジュアル -->
+          <div class="w-44 h-60 mx-auto my-3 rounded-3xl bg-gradient-to-br from-sky-500 via-indigo-600 to-purple-700 border-4 border-amber-300 shadow-2xl flex flex-col items-center justify-center text-white p-4 animate-float">
+            <div class="text-5xl mb-2">🃏</div>
+            <div class="font-black text-base leading-tight">リアルワールド<br/>算数パック</div>
+            <div class="mt-2 bg-amber-400 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full">
+              3枚入り！
+            </div>
+          </div>
+
+          <p class="text-sm font-bold text-slate-700 mt-4">
+            持っているコイン： <span class="text-xl font-black text-amber-600">🪙 ${this.state.coins}</span>
+          </p>
+
+          <div class="mt-5 flex flex-col sm:flex-row justify-center gap-3">
+            <button onclick="app.openCardPack(1)"
+              class="btn-pop bg-gradient-to-b from-amber-400 to-orange-500 text-white font-black text-base sm:text-lg px-6 py-4 rounded-2xl border-2 border-yellow-200 shadow-[0_5px_0_#c2410c]">
+              🎁 1パック開封（🪙 100）
+            </button>
+            <button onclick="app.openCardPack(3)"
+              class="btn-pop bg-gradient-to-b from-rose-500 to-pink-600 text-white font-black text-base sm:text-lg px-6 py-4 rounded-2xl border-2 border-rose-200 shadow-[0_5px_0_#9f1239]">
+              🎉 3パック連続開封（🪙 280）
+            </button>
+          </div>
+          <p class="text-xs font-bold text-slate-500 mt-3">
+            ※すでに持っているカードが出た場合は、自動でコインが少し戻ってくるよ！
+          </p>
+        </div>
+      </div>
+    `;
+  }
+
+  openCardPack(packCount) {
+    const cost = packCount === 3 ? 280 : 100;
+    if (this.state.coins < cost) {
+      sfx.wrong();
+      this.showToast("🪙 コインが足りないよ！冒険や道場でコインを集めよう！", "bg-rose-600 text-white border-rose-200");
+      return;
+    }
+
+    sfx.packOpen();
+    this.state.coins -= cost;
+
+    const totalCards = packCount * 3;
+    const pulled = [];
+    let refundCoins = 0;
+
+    for (let i = 0; i < totalCards; i++) {
+      const roll = Math.random();
+      let targetRarity = 'C';
+      if (roll < 0.22) targetRarity = 'SR';
+      else if (roll < 0.60) targetRarity = 'R';
+
+      const pool = CARDS_DB.filter(c => c.rarity === targetRarity);
+      const unownedPool = pool.filter(c => !this.state.ownedCards.includes(c.id));
+      const finalPool = (unownedPool.length > 0 && Math.random() < 0.75) ? unownedPool : pool;
+      const chosen = finalPool[Math.floor(Math.random() * finalPool.length)];
+
+      const isNew = !this.state.ownedCards.includes(chosen.id);
+      if (isNew) {
+        this.state.ownedCards.push(chosen.id);
+      } else {
+        refundCoins += chosen.rarity === 'SR' ? 30 : chosen.rarity === 'R' ? 15 : 10;
+      }
+      pulled.push({ card: chosen, isNew });
+    }
+
+    this.state.coins += refundCoins;
+    this.saveState();
+    this.render();
+
+    this.openModal(`
+      <div class="text-center space-y-4">
+        <div class="inline-block bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black px-4 py-1 rounded-full text-sm">
+          ✨ パック開封結果（${totalCards}枚）✨
+        </div>
+        <div class="grid grid-cols-3 gap-2.5 max-h-[55vh] overflow-y-auto p-1">
+          ${pulled.map(item => `
+            <div class="relative animate-card-flip">
+              ${item.isNew ? '<span class="absolute -top-2 -left-1 z-10 bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">NEW!</span>' : ''}
+              ${this.renderCardHTML(item.card, { compact: true })}
+            </div>
+          `).join('')}
+        </div>
+        ${refundCoins > 0 ? `<div class="text-xs font-black text-amber-700 bg-amber-50 py-1.5 px-3 rounded-xl">ダブりボーナスで 🪙 +${refundCoins} コイン還元！</div>` : ''}
+        <button onclick="app.closeModal()"
+          class="btn-pop w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-3 rounded-2xl border-2 border-sky-200 shadow-[0_4px_0_#0369a1]">
+          やったね！とじる
+        </button>
+      </div>
+    `);
+  }
+
+  /**
+   * 6. ひらめき算数道場（ノーストレス特訓＆コイン稼ぎ）
+   */
+  setDojoTopic(topicId) {
+    sfx.click();
+    this.dojoTopic = topicId;
+    this.nextDojoProblem();
+    this.render();
+  }
+
+  nextDojoProblem() {
+    this.dojoProblem = ProblemGenerator.generate(this.dojoTopic, null);
+    this.dojoShowHint = false;
+  }
+
+  toggleDojoHint() {
+    sfx.click();
+    this.dojoShowHint = !this.dojoShowHint;
+    this.render();
+  }
+
+  answerDojo(choice) {
+    if (!this.dojoProblem) return;
+    if (choice === this.dojoProblem.answer) {
+      sfx.correct();
+      this.dojoStreak += 1;
+      const bonus = 15 + Math.min(this.dojoStreak, 5) * 3;
+      this.state.coins += bonus;
+      this.state.totalSolved += 1;
+      this.saveState();
+      this.showToast(`🎉 大正解！ 🪙 +${bonus} コインゲット！（${this.dojoStreak}連続）`, "bg-emerald-600 text-white border-emerald-200");
+      this.nextDojoProblem();
+      this.render();
+    } else {
+      sfx.wrong();
+      this.dojoStreak = 0;
+      this.dojoShowHint = true;
+      this.showToast("🐶 おしい！図解ヒントを見てからもう1回えらんでみよう！", "bg-amber-500 text-slate-900 border-white");
+      this.render();
+    }
+  }
+
+  viewDojo() {
+    if (!this.dojoProblem) this.nextDojoProblem();
+    const p = this.dojoProblem;
+
+    return `
+      <div class="space-y-5 animate-pop-in">
+        <div class="flex items-center justify-between">
+          <button onclick="app.switchView('home')" class="btn-pop bg-white text-slate-700 font-black px-4 py-2 rounded-2xl border-2 border-slate-300 shadow-[0_3px_0_#cbd5e1] text-sm">
+            ⬅ ホームへもどる
+          </button>
+          <h2 class="text-lg sm:text-2xl font-black text-slate-800">🥋 ひらめき算数道場</h2>
+          <div class="bg-amber-400 text-slate-900 font-black px-3 py-1 rounded-full text-xs sm:text-sm">
+            🔥 ${this.dojoStreak} 連続正解
+          </div>
+        </div>
+
+        <!-- 単元セレクト -->
+        <div class="flex flex-wrap gap-2">
+          ${WORLDS.map(w => `
+            <button onclick="app.setDojoTopic(${w.id})"
+              class="px-3 py-2 rounded-2xl font-black text-xs sm:text-sm border-2 transition ${this.dojoTopic === w.id ? 'bg-indigo-600 text-white border-indigo-600 shadow' : 'bg-white text-slate-700 border-slate-300'}">
+              ${w.icon} ${w.mathTopic.split('（')[0]}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- 道場問題カード -->
+        <div class="bg-white rounded-3xl border-4 border-indigo-400 shadow-xl p-5 sm:p-6 max-w-3xl mx-auto">
+          <div class="flex items-center justify-between gap-2 pb-3 border-b-2 border-slate-100">
+            <span class="bg-indigo-100 text-indigo-800 text-xs font-black px-3 py-1 rounded-full">
+              ${p.badge}
+            </span>
+            <button onclick="app.toggleDojoHint()"
+              class="btn-pop bg-amber-400 hover:bg-amber-500 text-slate-900 font-black px-3.5 py-1.5 rounded-xl border-2 border-amber-200 shadow-[0_3px_0_#b45309] text-xs sm:text-sm">
+              💡 ${this.dojoShowHint ? '図解をとじる' : '図解ヒントを見る'}
+            </button>
+          </div>
+
+          <div class="my-4 bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 text-base sm:text-xl font-extrabold text-slate-800 leading-relaxed">
+            ${p.question}
+          </div>
+
+          ${this.dojoShowHint ? `
+            <div class="mb-4 bg-amber-50 border-2 border-amber-300 rounded-2xl p-3.5 animate-pop-in">
+              <div class="flex items-center gap-2 text-xs sm:text-sm font-black text-amber-900 mb-2">
+                <span class="text-xl">🐶</span>
+                <span>${p.hintText}</span>
+              </div>
+              <div class="bg-white rounded-xl p-2 border border-amber-200">
+                ${p.diagramSvg}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${p.choices.map((c, i) => `
+              <button onclick="app.answerDojo('${c}')"
+                class="btn-pop bg-gradient-to-b from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 text-white font-black text-base sm:text-lg py-3.5 px-4 rounded-2xl border-2 border-indigo-300 shadow-[0_4px_0_#1e3a8a] flex items-center justify-center gap-2">
+                <span class="bg-white/25 w-7 h-7 rounded-full flex items-center justify-center text-xs">${['A','B','C','D'][i]}</span>
+                <span>${c}</span>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 7. 設定・先生/保護者向けデモ解放メニュー
+   */
+  openSettings() {
+    sfx.click();
+    this.openModal(`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b-2 border-slate-100 pb-2">
+          <h3 class="text-lg font-black text-slate-800">⚙️ せってい・先生/おうちの人メニュー</h3>
+          <button onclick="app.closeModal()" class="text-slate-400 hover:text-slate-700 font-black text-xl">✕</button>
+        </div>
+
+        <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-1 text-xs sm:text-sm font-bold text-slate-700">
+          <div>💾 セーブ状態：<span class="font-black text-emerald-600">ブラウザに自動保存中</span></div>
+          <div>📊 これまでに解いた問題数：<span class="font-black text-sky-600">${this.state.totalSolved} 問</span></div>
+          <div>🏆 クリアしたステージ数：<span class="font-black text-emerald-600">${this.state.clearedStages.length} / 20</span></div>
+          <div>🃏 集めたカード種類：<span class="font-black text-amber-600">${this.state.ownedCards.length} / ${CARDS_DB.length} 種</span></div>
+        </div>
+
+        <div class="space-y-2.5">
+          <button onclick="app.openTutorial(0)"
+            class="btn-pop w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-3 px-4 rounded-2xl border-2 border-sky-200 shadow-[0_4px_0_#0369a1] text-sm">
+            📖 あそびかたチュートリアルをもう一度見る
+          </button>
+
+          <button onclick="app.unlockAllDemo()"
+            class="btn-pop w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black py-3 px-4 rounded-2xl border-2 border-amber-200 shadow-[0_4px_0_#c2410c] text-sm">
+            🔓 デモ用：全20ステージ ＆ 全42種カード ＆ 9999コイン解放
+          </button>
+
+          <button onclick="app.resetProgress()"
+            class="w-full bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 font-bold py-2.5 px-4 rounded-2xl text-xs transition">
+            🔄 セーブデータを最初からやり直す
+          </button>
+        </div>
+      </div>
+    `);
+  }
+
+  unlockAllDemo() {
+    sfx.victory();
+    this.state.coins = 9999;
+    this.state.clearedStages = WORLDS.flatMap(w => w.stages.map(s => s.id));
+    this.state.ownedCards = CARDS_DB.map(c => c.id);
+    this.saveState();
+    this.closeModal();
+    this.showToast("🎉 全ステージ・全カード・コインを解放しました！", "bg-amber-500 text-slate-900 border-white");
+    this.render();
+  }
+
+  resetProgress() {
+    sfx.wrong();
+    this.state = this.getDefaultState();
+    this.saveState();
+    this.closeModal();
+    this.showToast("🔄 データを初期状態にリセットしました");
+    this.switchView('home');
+    setTimeout(() => this.openTutorial(0), 300);
+  }
+}
+
+// アプリ起動
+window.addEventListener('DOMContentLoaded', () => {
+  window.app = new MathBattlerApp();
+});
+</script>
+</body>
+</html>
